@@ -7,7 +7,7 @@
 <meta name="description" content="把新北市長參選人蘇巧慧的 14 項政見做成 3D 互動島嶼（非官方原型）">
 <style>
   :root {
-    --bg: #f3efe6;
+    --bg: #e3eff2;
     --ink: #1f2328;
     --muted: #5b6370;
     --card: #fffdf8;
@@ -212,7 +212,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 stage.appendChild(renderer.domElement);
 
-const BG = new THREE.Color('#f3efe6');
+const BG = new THREE.Color('#e3eff2');
 const scene = new THREE.Scene();
 scene.background = BG;
 scene.fog = new THREE.Fog(BG, 60, 140);
@@ -221,7 +221,7 @@ const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 20
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.minDistance = 6;
-controls.maxDistance = 100;
+controls.maxDistance = 130;
 controls.maxPolarAngle = Math.PI * 0.44;
 
 scene.add(new THREE.HemisphereLight('#fff7ea', '#b9c7c4', 1.6));
@@ -229,18 +229,10 @@ const sun = new THREE.DirectionalLight('#ffffff', 2.4);
 sun.position.set(14, 24, 10);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 75 });
+Object.assign(sun.shadow.camera, { left: -28, right: 28, top: 28, bottom: -28, near: 1, far: 80 });
 sun.shadow.bias = -0.0005;
 scene.add(sun);
 
-const sea = new THREE.Mesh(
-  new THREE.CircleGeometry(90, 64),
-  new THREE.MeshStandardMaterial({ color: '#d6e6e2', roughness: 1 }),
-);
-sea.rotation.x = -Math.PI / 2;
-sea.position.y = -1.2;
-sea.receiveShadow = true;
-scene.add(sea);
 
 // ---------- Model kit ----------
 const matCache = new Map();
@@ -567,7 +559,18 @@ const RIVER = '#6fb3d6';
 // angle: degrees clockwise from north (-z); each islet is turned so its local +z faces Taipei
 const SPOTS = [
   {
-    name: '淡水情人橋', angle: -40, r: 13.5, ground: '#cfe3b0', turn: Math.PI / 2,
+    name: '觀音山', map: '觀音山風景區', angle: -80, r: 17.5, ground: '#cfe3b0', turn: Math.PI / 2,
+    desc: '位在淡水河口的八里，從淡水望去山形像觀音仰臥，因而得名。',
+    build(g) {
+      // Ridge line read side-on, like the reclining Guanyin profile
+      [[-0.9, 0.9, 0.7], [-0.2, 1.6, 0.95], [0.5, 1.25, 0.8], [1.05, 0.8, 0.6]].forEach(([x, h, r]) => {
+        g.add(mesh(new THREE.ConeGeometry(r, h, 7), '#5f8f5a', x, h / 2, -0.1, { flatShading: true }));
+      });
+      tree(g, -0.6, 0.9, 0.5); tree(g, 0.6, 1, 0.5);
+    },
+  },
+  {
+    name: '淡水情人橋', map: '淡水情人橋', angle: -55, r: 16, ground: '#eadcb8', turn: Math.PI / 2,
     desc: '淡水漁人碼頭旁的白色斜張橋，橫跨淡水河出海口，是看夕陽的熱門地點。',
     build(g) {
       g.add(mesh(new THREE.BoxGeometry(3.4, 0.03, 0.9), RIVER, 0, 0.015, 0));
@@ -578,7 +581,7 @@ const SPOTS = [
     },
   },
   {
-    name: '野柳女王頭', angle: 25, r: 14, ground: '#eadcb8',
+    name: '野柳女王頭', map: '野柳女王頭', angle: 15, r: 16.5, ground: '#eadcb8',
     desc: '野柳地質公園的蕈狀岩，因側面像戴著皇冠的女王而得名，是北海岸最具代表性的地景。',
     build(g) {
       [[-0.8, 0.5, 0.25], [0.7, -0.6, 0.3], [0.9, 0.6, 0.35]].forEach(([x, z, s]) => g.add(mesh(new THREE.DodecahedronGeometry(s), '#c9a46a', x, s * 0.6, z)));
@@ -591,7 +594,7 @@ const SPOTS = [
     },
   },
   {
-    name: '九份老街', angle: 62, r: 13, ground: '#cfe3b0',
+    name: '九份老街', map: '九份老街', angle: 58, r: 16, ground: '#cfe3b0',
     desc: '依山而建的山城老街，紅燈籠、茶樓與階梯小巷層層疊疊，可眺望基隆山與東北角海景。',
     build(g) {
       // Terraces climbing away from Taipei, houses on each step
@@ -608,7 +611,46 @@ const SPOTS = [
     },
   },
   {
-    name: '平溪天燈', angle: 97, r: 13, ground: '#cfe3b0',
+    name: '三貂角燈塔', map: '三貂角燈塔', angle: 92, r: 16.5, ground: '#eadcb8',
+    desc: '位在台灣本島最東端的三貂角，白色燈塔俯瞰太平洋，是東北角的重要地標。',
+    build(g) {
+      [[-0.9, 0.4, 0.35], [0.8, 0.7, 0.3], [-0.4, -0.9, 0.3]].forEach(([x, z, s]) => g.add(mesh(new THREE.DodecahedronGeometry(s), '#9ca3af', x, s * 0.5, z)));
+      g.add(mesh(new THREE.CylinderGeometry(0.28, 0.38, 1.4, 14), '#ffffff', 0, 0.7, 0));
+      g.add(mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.08, 14), '#374151', 0, 1.42, 0));
+      g.add(mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.25, 12), '#fef3c7', 0, 1.58, 0, { emissive: '#fbbf24', emissiveIntensity: 0.8 }));
+      g.add(mesh(new THREE.SphereGeometry(0.22, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), '#374151', 0, 1.7, 0));
+      // Sweeping light beam: cone apex at the lamp, pointing sideways, spun around the tower
+      const pivot = new THREE.Group();
+      pivot.position.y = 1.58;
+      const beam = new THREE.Mesh(
+        new THREE.ConeGeometry(0.35, 2.4, 16, 1, true).translate(0, -1.2, 0),
+        mat('#fde68a', { transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide }),
+      );
+      beam.rotation.z = Math.PI / 2;
+      pivot.add(beam);
+      g.add(pivot);
+      animators.push((t) => { pivot.rotation.y = t * 1.2; });
+    },
+  },
+  {
+    name: '福隆海水浴場', map: '福隆海水浴場', angle: 118, r: 16, ground: '#f3e3b5',
+    desc: '東北角著名的金黃沙灘，每年夏天舉辦福隆國際沙雕藝術季。',
+    build(g) {
+      [['#e5484d', -0.7, 0.3], ['#3f7fd0', 0.2, 0.7], ['#f2a03d', 0.8, -0.1]].forEach(([c, x, z]) => {
+        g.add(mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.8, 5), '#e5e7eb', x, 0.4, z));
+        g.add(mesh(new THREE.ConeGeometry(0.45, 0.22, 8), c, x, 0.85, z));
+        g.add(mesh(new THREE.BoxGeometry(0.3, 0.02, 0.55), shade(c, 0.5), x + 0.3, 0.01, z + 0.1));
+      });
+      // Sand castle for the sand sculpture festival
+      g.add(mesh(new THREE.BoxGeometry(0.7, 0.35, 0.5), '#d6b98a', -0.3, 0.175, -0.7));
+      [-0.55, -0.05].forEach((x) => {
+        g.add(mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.6, 8), '#d6b98a', x, 0.3, -0.7));
+        g.add(mesh(new THREE.ConeGeometry(0.13, 0.22, 8), '#c9a46a', x, 0.71, -0.7));
+      });
+    },
+  },
+  {
+    name: '平溪天燈', map: '平溪老街', angle: 140, r: 17, ground: '#cfe3b0',
     desc: '平溪老街與十分一帶的放天燈傳統，每年元宵節的平溪天燈節最為盛大。',
     build(g) {
       g.add(mesh(new THREE.BoxGeometry(3, 0.04, 0.16), '#6b7280', 0, 0.02, 0.7));
@@ -628,7 +670,22 @@ const SPOTS = [
     },
   },
   {
-    name: '碧潭吊橋', angle: 162, r: 13.5, ground: '#cfe3b0',
+    name: '坪林茶園', map: '坪林茶業博物館', angle: 163, r: 17.5, ground: '#cfe3b0', turn: Math.PI,
+    desc: '北台灣的茶鄉，以文山包種茶聞名，山坡上滿是層層茶園，還有坪林茶業博物館。',
+    build(g) {
+      [[0.7, 0.15], [0.1, 0.4], [-0.5, 0.65]].forEach(([z, h], k) => {
+        g.add(mesh(rbox(2.6 - k * 0.4, h, 0.6, 0.04), '#a3b18a', 0, h / 2, z));
+        for (let i = 0; i < 5 - k; i++) {
+          const bush = mesh(new THREE.CapsuleGeometry(0.1, 0.25, 3, 8), '#3f7d3c', (i - (4 - k) / 2) * 0.45, h + 0.1, z);
+          bush.rotation.z = Math.PI / 2;
+          g.add(bush);
+        }
+      });
+      house(g, 0.9, -0.9, '#f1e4c9', '#7a2e22', 0.5);
+    },
+  },
+  {
+    name: '碧潭吊橋', map: '碧潭吊橋', angle: 190, r: 16, ground: '#cfe3b0',
     desc: '橫跨新店溪的吊橋，搭配碧潭水岸與天鵝船，是新店最具代表性的風景。',
     build(g) {
       g.add(mesh(new THREE.BoxGeometry(3.4, 0.03, 1.1), RIVER, 0, 0.015, 0));
@@ -653,7 +710,7 @@ const SPOTS = [
     },
   },
   {
-    name: '烏來瀑布', angle: 188, r: 13, ground: '#cfe3b0',
+    name: '烏來瀑布', map: '烏來瀑布', angle: 212, r: 18, ground: '#cfe3b0', turn: Math.PI,
     desc: '烏來泰雅族部落旁的瀑布，可以搭乘觀光台車前往，周邊也是知名的溫泉鄉。',
     build(g) {
       g.add(mesh(rbox(2.4, 2.2, 0.7, 0.1), '#6b8f5e', 0, 1.1, -0.7));
@@ -671,7 +728,7 @@ const SPOTS = [
     },
   },
   {
-    name: '三峽祖師廟', angle: 225, r: 13, ground: '#e7e5e4',
+    name: '三峽祖師廟', map: '三峽祖師廟', angle: 234, r: 16.5, ground: '#e7e5e4', turn: Math.PI,
     desc: '主祀清水祖師，以精緻的石雕、木雕與銅雕聞名，有「東方藝術殿堂」之稱。',
     build(g) {
       g.add(mesh(new THREE.BoxGeometry(2.2, 0.08, 1.8), '#d6d3d1', 0, 0.04, 0));
@@ -691,7 +748,7 @@ const SPOTS = [
     },
   },
   {
-    name: '鶯歌陶瓷老街', angle: 268, r: 13, ground: '#eadcb8',
+    name: '鶯歌陶瓷老街', map: '鶯歌陶瓷老街', angle: 256, r: 16, ground: '#eadcb8',
     desc: '台灣的陶瓷重鎮，老街上滿是陶瓷工坊，也有鶯歌陶瓷博物館。',
     build(g) {
       const profile = [[0, 0], [0.28, 0.02], [0.4, 0.25], [0.42, 0.5], [0.3, 0.8], [0.16, 1], [0.15, 1.1], [0.22, 1.2], [0.2, 1.22]]
@@ -716,8 +773,8 @@ const spots = SPOTS.map((s, k) => {
   const g = new THREE.Group();
   g.position.set(Math.sin(a) * s.r, 0, -Math.cos(a) * s.r);
   g.rotation.y = -a;
-  const islet = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2, 0.9, 24), [mat('#c9b99a'), mat(s.ground), mat('#c9b99a')]);
-  islet.position.y = -0.25;
+  const islet = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.1, 1.5, 24), [mat('#c9b99a'), mat(s.ground), mat('#c9b99a')]);
+  islet.position.y = -0.55;
   islet.castShadow = islet.receiveShadow = true;
   g.add(islet);
   const content = new THREE.Group();
@@ -735,6 +792,99 @@ const spots = SPOTS.map((s, k) => {
   labelsEl.appendChild(label);
   return { g, label };
 });
+
+// ---------- Environment: sea, coastline, mountains, clouds ----------
+// Same angle convention as SPOTS; the sea opens to the north and east like New Taipei's coast
+const SEA_FROM = -75, SEA_TO = 125;
+const toXZ = (deg, r) => {
+  const a = THREE.MathUtils.degToRad(deg);
+  return [Math.sin(a) * r, -Math.cos(a) * r];
+};
+function coastRadius(deg) {
+  const ramp = 12, far = 120;
+  if (deg < SEA_FROM - ramp || deg > SEA_TO + ramp) return far;
+  const shore = 16.3 + Math.sin(THREE.MathUtils.degToRad(deg) * 5) * 0.7;
+  if (deg < SEA_FROM) return THREE.MathUtils.lerp(far, shore, (deg - (SEA_FROM - ramp)) / ramp);
+  if (deg > SEA_TO) return THREE.MathUtils.lerp(shore, far, (deg - SEA_TO) / ramp);
+  return shore;
+}
+function landGeometry(extra) {
+  const pts = [];
+  for (let deg = -180; deg < 180; deg += 2) {
+    const [x, z] = toXZ(deg, coastRadius(deg) + extra);
+    pts.push(new THREE.Vector2(x, -z)); // shape y becomes world -z after rotateX
+  }
+  return new THREE.ShapeGeometry(new THREE.Shape(pts)).rotateX(-Math.PI / 2);
+}
+const land = new THREE.Mesh(landGeometry(0), new THREE.MeshStandardMaterial({ color: '#cfdcb8', roughness: 1 }));
+land.position.y = -1;
+land.receiveShadow = true;
+scene.add(land);
+const beach = new THREE.Mesh(landGeometry(1.4), new THREE.MeshStandardMaterial({ color: '#efe2c0', roughness: 1 }));
+beach.position.y = -1.03;
+beach.receiveShadow = true;
+scene.add(beach);
+
+const seaGeo = new THREE.PlaneGeometry(260, 260, 80, 80).rotateX(-Math.PI / 2);
+const seaRest = seaGeo.attributes.position.array.slice();
+const sea = new THREE.Mesh(seaGeo, new THREE.MeshStandardMaterial({ color: '#7fc3dc', roughness: 0.35, metalness: 0.05, flatShading: true }));
+sea.position.y = -1.3;
+sea.receiveShadow = true;
+scene.add(sea);
+// flatShading derives normals in the shader, so moving vertices is enough to show facets
+animators.push((t) => {
+  const p = seaGeo.attributes.position.array;
+  for (let i = 0; i < p.length; i += 3) {
+    p[i + 1] = Math.sin(seaRest[i] * 0.22 + t * 0.9) * 0.07 + Math.cos(seaRest[i + 2] * 0.27 + t * 0.7) * 0.06;
+  }
+  seaGeo.attributes.position.needsUpdate = true;
+});
+
+// Seeded random so the mountain range looks the same on every load
+function seeded(seed) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rand = seeded(20261022);
+const MOUNTAIN_GREENS = ['#7fae72', '#6a9a63', '#8dbb7c', '#5f8f5a'];
+for (let deg = SEA_TO + 10; deg <= 360 + SEA_FROM - 6; deg += 6) {
+  [20.5, 25, 30].forEach((r0, row) => {
+    const [x, z] = toXZ(deg + rand() * 4, r0 + rand() * 3);
+    if (spots.some((s) => Math.hypot(s.g.position.x - x, s.g.position.z - z) < 4)) return;
+    const foreground = deg > 150 && deg < 215; // keep peaks near the camera low so they do not hide the city
+    const h = (3 + rand() * 4 + row * 1.5) * (foreground ? 0.55 : 1);
+    const m = mesh(new THREE.ConeGeometry(h * 0.75, h, 6 + Math.floor(rand() * 2)), MOUNTAIN_GREENS[Math.floor(rand() * 4)], x, -1 + h / 2, z, { flatShading: true });
+    m.rotation.y = rand() * Math.PI;
+    scene.add(m);
+  });
+}
+
+// Clouds circle slowly around the outskirts so they frame the map instead of covering it
+const clouds = Array.from({ length: 9 }, (_, k) => {
+  const c = new THREE.Group();
+  const n = 3 + Math.floor(rand() * 3);
+  for (let i = 0; i < n; i++) {
+    const puff = mesh(new THREE.IcosahedronGeometry(0.9 + rand() * 0.8, 0), '#ffffff', (i - n / 2) * 1.1, rand() * 0.5, rand() * 0.8 - 0.4, { flatShading: true, transparent: true, opacity: 0.92 });
+    puff.castShadow = puff.receiveShadow = false;
+    c.add(puff);
+  }
+  scene.add(c);
+  return { c, angle: (k / 9) * 360 + rand() * 20, r: 22 + rand() * 14, y: 9 + rand() * 4 };
+});
+function driftClouds(dt) {
+  clouds.forEach((cl) => {
+    cl.angle += dt * 1.2;
+    const [x, z] = toXZ(cl.angle, cl.r);
+    cl.c.position.set(x, cl.y, z);
+    cl.c.rotation.y = -THREE.MathUtils.degToRad(cl.angle);
+  });
+}
+driftClouds(0);
+animators.push((t, dt) => driftClouds(dt));
 
 // ---------- People ----------
 const PEOPLE = [
@@ -860,8 +1010,9 @@ function updatePersonLabels() {
 }
 
 // ---------- Camera fly ----------
-const HOME_TARGET = new THREE.Vector3(0, 0, -0.5);
-const homeOffset = () => new THREE.Vector3(0, 30, 32.5).multiplyScalar(camera.aspect < 0.8 ? 2.1 : 1);
+const HOME_TARGET = new THREE.Vector3(0, 0, 0);
+// Portrait screens need more distance to fit the width; look down steeper so the southern mountains stay out of the way
+const homeOffset = () => (camera.aspect < 0.8 ? new THREE.Vector3(0, 92, 48) : new THREE.Vector3(0, 37, 40));
 let fly = null;
 function flyTo(target, offset) {
   fly = { target: target.clone(), pos: target.clone().add(offset) };
@@ -907,7 +1058,8 @@ function selectSpot(k) {
   cardBody.innerHTML = `
     <span class="tag" style="background:#0f766e">新北景點</span>
     <h2>${s.name}</h2>
-    <p>${s.desc}</p>`;
+    <p>${s.desc}</p>
+    <a class="source" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.map)}" target="_blank" rel="noopener">在 Google 地圖開啟 ↗</a>`;
   card.hidden = false;
   card.scrollTop = 0;
   setNavUnit('個');
@@ -991,6 +1143,9 @@ renderer.setAnimationLoop(() => {
     if (camera.position.distanceTo(fly.pos) < 0.05) fly = null;
   }
   controls.update();
+  const viewDist = camera.position.distanceTo(controls.target);
+  scene.fog.near = viewDist + 15;
+  scene.fog.far = viewDist + 110;
   renderer.render(scene, camera);
   updateLabels();
   updatePersonLabels();
