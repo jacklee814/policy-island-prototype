@@ -1271,6 +1271,7 @@ function applyDim() {
 }
 
 function openCard() {
+  if (!indexEl.hidden) toggleIndex(false); // never show the card and the index panel together
   if (card.hidden) cardOpener = document.activeElement; // return focus here when the card closes
   card.hidden = false;
   card.scrollTop = 0;
@@ -1328,7 +1329,7 @@ function focusOn(pos) {
   const offset = new THREE.Vector3(5, 7, 9).multiplyScalar(camera.aspect < 0.8 ? 1.5 : 1);
   const target = pos.clone().add(new THREE.Vector3(0, 1, 0));
   // Shift the view so the subject is not hidden behind the card
-  if (camera.aspect >= 0.8) target.add(indexEl.hidden ? new THREE.Vector3(1.8, 0, -1.2) : new THREE.Vector3(0.2, 0, -0.15));
+  if (camera.aspect >= 0.8) target.add(new THREE.Vector3(1.8, 0, -1.2));
   else target.add(new THREE.Vector3(0, -1.8, 1.8)); // phones: lift the subject above the bottom card
   flyTo(target, offset);
 }
@@ -1342,8 +1343,6 @@ function deselect() {
   setHash('', '');
   renderIndex();
   if (!wasOpen) return;
-  // The index list re-renders on every selection, so look the opener up again by its item number
-  if (cardOpener?.dataset.i !== undefined && !document.contains(cardOpener)) cardOpener = listEl.querySelector(`button[data-i="${cardOpener.dataset.i}"]`);
   if (cardOpener && cardOpener !== document.body && document.contains(cardOpener)) cardOpener.focus();
   else if (card.contains(document.activeElement)) document.activeElement.blur(); // never leave focus inside the hidden card
 }
@@ -1457,6 +1456,7 @@ function setTab(tab) {
 }
 
 function toggleIndex(open = indexEl.hidden) {
+  if (open && !card.hidden) deselect(); // never show the card and the index panel together
   indexEl.hidden = !open;
   indexToggle.setAttribute('aria-expanded', String(open));
   if (open) {
@@ -1476,7 +1476,7 @@ listEl.addEventListener('click', (e) => {
   const i = Number(btn.dataset.i);
   if (indexTab === 'policies') select(i);
   else selectSpot(i);
-  if (camera.aspect < 0.8) toggleIndex(false); // the card takes the bottom of the screen on phones
+  cardOpener = indexToggle; // the list item is gone with the closed panel, so return focus to the toggle
 });
 
 // ---------- Sharing: copy link, Instagram story image ----------
