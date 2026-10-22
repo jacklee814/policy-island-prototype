@@ -213,7 +213,8 @@
   // Drop LINE login callback params (one-time auth code) from what GA4 records
   const gaUrl = new URL(location.href);
   ['code', 'state', 'liffClientId', 'liffRedirectUri', 'liff.state'].forEach((k) => gaUrl.searchParams.delete(k));
-  gtag('config', 'G-5H13CQWF3X', { page_location: gaUrl.href });
+  // ?og=... renders link-preview images during the build; keep those out of analytics
+  if (!gaUrl.searchParams.has('og')) gtag('config', 'G-5H13CQWF3X', { page_location: gaUrl.href });
 </script>
 <style>
   :root {
@@ -2059,6 +2060,115 @@ function makeStoryCanvas(i) {
   return c;
 }
 
+// ---------- Link-preview cards (?og=policy-12 / ?og=spot-03), rendered by tools/build_og_images.py ----------
+const ogParam = new URLSearchParams(location.search).get('og');
+
+function makeOgCanvas(kind, i) {
+  const W = 1200, H = 630, PAD = 56;
+  const isPolicy = kind === 'policy';
+  const item = isPolicy ? POLICIES[i] : SPOTS[i];
+  const color = isPolicy ? GROUPS[item.group].color : '#0f766e';
+  const tag = isPolicy ? GROUPS[item.group].name : '新北景點';
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext('2d');
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, shade(color, 0.82));
+  bg.addColorStop(1, '#fffdf8');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // 3D snapshot on the left
+  const shot = H - PAD * 2;
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(PAD, PAD, shot, shot, 28);
+  ctx.clip();
+  const subject = isPolicy ? islands[i].position : spots[i].g.position;
+  drawShot(ctx, subject.clone().add(new THREE.Vector3(0, isPolicy ? 0.9 : 0.8, 0)), PAD, PAD, shot, shot);
+  ctx.restore();
+
+  // Text column on the right
+  const x = PAD + shot + 48, w = W - x - PAD;
+  let y = PAD + 4;
+  ctx.textBaseline = 'top';
+  ctx.font = `700 24px ${STORY_FONT}`;
+  const tagW = ctx.measureText(tag).width + 36;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(x, y, tagW, 42, 21);
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(tag, x + 18, y + 8);
+  y += 66;
+
+  ctx.fillStyle = '#1f2328';
+  const heading = fitLines(ctx, isPolicy ? item.title : item.name, w, 700, [46, 42, 38]);
+  y = drawLines(ctx, heading.lines, x, y, Math.round(heading.size * 1.26), 2) + 18;
+
+  const limit = H - PAD - 60;
+  if (isPolicy) {
+    // One size for every bullet: the largest at which none of them ends on a lonely character
+    const points = item.items.slice(0, 4);
+    const lonely = (t) => {
+      const lines = wrapText(ctx, t, w - 28);
+      return lines.length > 1 && [...lines.at(-1)].length <= 2;
+    };
+    const size = [26, 24, 22].find((px) => {
+      ctx.font = `400 ${px}px ${STORY_FONT}`;
+      return !points.some(lonely);
+    }) ?? 22;
+    ctx.font = `400 ${size}px ${STORY_FONT}`;
+    for (const point of points) {
+      const lines = wrapText(ctx, point, w - 28);
+      if (y + Math.min(lines.length, 2) * 36 > limit) break;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x + 7, y + 17, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#1f2328';
+      y = drawLines(ctx, lines, x + 28, y, 36, 2) + 10;
+    }
+  } else {
+    ctx.fillStyle = '#5b6370';
+    ctx.font = `400 28px ${STORY_FONT}`;
+    drawLines(ctx, wrapText(ctx, item.desc, w), x, y, 42, 5);
+  }
+
+  ctx.fillStyle = '#1f2328';
+  ctx.font = `700 26px ${STORY_FONT}`;
+  ctx.fillText('新北政見島', x, H - PAD - 30);
+  ctx.fillStyle = '#5b6370';
+  ctx.font = `400 20px ${STORY_FONT}`;
+  ctx.textAlign = 'right';
+  ctx.fillText('非官方整理', W - PAD, H - PAD - 24);
+  ctx.textAlign = 'left';
+  return c;
+}
+
+// Pick the largest size whose wrapping does not leave a lonely last line (one or two characters)
+function fitLines(ctx, text, width, weight, sizes) {
+  for (const size of sizes) {
+    ctx.font = `${weight} ${size}px ${STORY_FONT}`;
+    const lines = wrapText(ctx, text, width);
+    if (lines.length === 1 || [...lines.at(-1)].length > 2) return { lines, size };
+  }
+  return { lines: wrapText(ctx, text, width), size: sizes.at(-1) };
+}
+
+// Cover the page with the finished card at 1200×630 so the build can screenshot it
+function renderOgCard() {
+  const [kind, num] = ogParam.split('-');
+  const i = Number(num) - 1;
+  if (!(kind === 'policy' ? POLICIES[i] : kind === 'spot' ? SPOTS[i] : null)) return;
+  const img = new Image();
+  img.onload = () => { window.ogReady = true; };
+  img.src = makeOgCanvas(kind, i).toDataURL('image/png');
+  img.style.cssText = 'position:fixed;left:0;top:0;width:1200px;height:630px;z-index:100';
+  document.body.appendChild(img);
+}
+
 // Synchronous PNG encoding keeps navigator.share inside the click's user activation (Safari is strict about this)
 function canvasToBlob(c) {
   const bin = atob(c.toDataURL('image/png').split(',')[1]);
@@ -2211,7 +2321,8 @@ renderer.setAnimationLoop(() => {
   if (firstFrame) {
     firstFrame = false;
     document.getElementById('loading').classList.add('done');
-    if (selected < 0 && selectedSpot < 0) showFirstHint();
+    if (ogParam) setTimeout(renderOgCard, 500); // let the first frames settle before the snapshot
+    else if (selected < 0 && selectedSpot < 0) showFirstHint();
   }
 });
 

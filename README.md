@@ -28,7 +28,11 @@ python3 tools/build_static.py
 - `index.html` 裡 `seo:jsonld` 與 `seo:noscript` 標記之間的內容：給搜尋引擎讀的結構化資料與文字版政見。
 - `sitemap.xml`
 
-`og.png` 是共用的 1200×630 預覽圖（全景截圖）。
+`og.png` 是首頁與總覽頁共用的 1200×630 預覽圖（全景截圖）。每項政見與景點的預覽卡片在 `og/`，由網站自己畫（`index.html?og=policy-12`）再截圖，需要 agent-browser。內容或外觀改了之後：
+
+```bash
+python3 tools/build_og_images.py && python3 tools/build_static.py
+```
 
 ## 流量統計
 

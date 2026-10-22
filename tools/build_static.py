@@ -54,6 +54,11 @@ spots = [
 assert len(groups) == 5 and len(policies) == 14 and len(spots) == 12, (len(groups), len(policies), len(spots))
 
 
+def og_image(key):
+    """Per-item card from tools/build_og_images.py, or the shared overview image until it exists."""
+    return f"{SITE}og/{key}.png" if (ROOT / "og" / f"{key}.png").exists() else OG_IMAGE
+
+
 def page_path(kind, name):
     return f"{kind}/{quote(name)}/"
 
@@ -89,7 +94,7 @@ FOOTER = f"""<footer class="site-footer">
 </footer>"""
 
 
-def text_page(path, title, description, body, crumbs, og_title=None):
+def text_page(path, title, description, body, crumbs, og_title=None, image=OG_IMAGE):
     """crumbs: [(name, path or None)] after 首頁; the last one is the current page."""
     url = SITE + path
     breadcrumb_ld = {
@@ -131,7 +136,9 @@ def text_page(path, title, description, body, crumbs, og_title=None):
 <meta property="og:title" content="{e(og_title or title)}">
 <meta property="og:description" content="{e(description)}">
 <meta property="og:url" content="{url}">
-<meta property="og:image" content="{OG_IMAGE}">
+<meta property="og:image" content="{image}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">{ld}</script>
 {GA_SNIPPET}
@@ -181,7 +188,7 @@ for n, p in enumerate(policies):
 </nav>
 <p class="note">本頁為非官方整理，內容節錄自蘇巧慧 2026 新北市長競選網站（擷取日期 {SOURCE_DATE}），若有出入請以<a href="{official_url(p)}">官方原文</a>為準。</p>"""
     description = summarize(f"{p['summary']}重點：{'；'.join(p['items'])}")
-    write(path, text_page(path, f"{p['title']}｜蘇巧慧 2026 新北市長政見｜新北政見島", description, body, [("政見一覽", "policy/"), (p["short"], None)], og_title=f"{p['title']}｜新北政見島"))
+    write(path, text_page(path, f"{p['title']}｜蘇巧慧 2026 新北市長政見｜新北政見島", description, body, [("政見一覽", "policy/"), (p["short"], None)], og_title=f"{p['title']}｜新北政見島", image=og_image(f"policy-{n + 1:02d}")))
     written.append(path)
 
 for n, s in enumerate(spots):
@@ -198,7 +205,7 @@ for n, s in enumerate(spots):
   <a href="/{page_path('spot', prev_s['name'])}">← {e(prev_s['name'])}</a>
   <a href="/{page_path('spot', next_s['name'])}">{e(next_s['name'])} →</a>
 </nav>"""
-    write(path, text_page(path, f"{s['name']}｜新北景點｜新北政見島", s["desc"], body, [("政見一覽", "policy/"), (s["name"], None)]))
+    write(path, text_page(path, f"{s['name']}｜新北景點｜新北政見島", s["desc"], body, [("政見一覽", "policy/"), (s["name"], None)], image=og_image(f"spot-{n + 1:02d}")))
     written.append(path)
 
 # Overview of every policy and landmark
@@ -260,7 +267,7 @@ def share_page(slug, kind, name, title, description):
 <meta property="og:title" content="{e(title)}｜新北政見島">
 <meta property="og:description" content="{e(description)}">
 <meta property="og:url" content="{SITE}share/{slug}.html">
-<meta property="og:image" content="{OG_IMAGE}">
+<meta property="og:image" content="{og_image(slug)}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
