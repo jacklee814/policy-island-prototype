@@ -12,3 +12,16 @@
 python3 -m http.server 8000
 # 開啟 http://localhost:8000
 ```
+
+## 分享預覽頁
+
+社群平台抓連結預覽時看不到網址 `#` 後面的部分，所以每項政見與景點都有一個 `share/*.html` 小頁面，帶自己的標題與摘要，打開後會跳回主頁面的對應位置。
+
+修改 `index.html` 裡的 `POLICIES` 或 `SPOTS` 後，要重新產生：
+
+```bash
+python3 tools/build_share_pages.py
+```
+
+`og.png` 是共用的 1200×630 預覽圖（全景截圖）。
+

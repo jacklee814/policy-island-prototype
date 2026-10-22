@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>新北政見島</title>
 <meta name="description" content="把新北市長參選人蘇巧慧的 14 項政見做成 3D 互動島嶼（非官方原型）">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="新北政見島">
+<meta property="og:title" content="新北政見島">
+<meta property="og:description" content="把蘇巧慧 2026 新北市長競選網站的 14 項政見做成 3D 互動島嶼（非官方整理）">
+<meta property="og:url" content="https://jacklee814.github.io/policy-island-prototype/">
+<meta property="og:image" content="https://jacklee814.github.io/policy-island-prototype/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <style>
   :root {
     --bg: #e3eff2;
@@ -51,8 +60,30 @@
   header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
   header button { pointer-events: auto; flex: none; }
   .actions { display: flex; gap: 8px; flex: none; }
-  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 12px; color: var(--muted); }
-  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .legend button {
+    pointer-events: auto; display: inline-flex; align-items: center; gap: 5px; flex: none;
+    padding: 3px 10px; border-radius: 999px; font-size: 12px; color: var(--muted); background: rgba(255, 253, 248, .85);
+  }
+  .legend button[aria-pressed="true"] { color: var(--ink); border-color: var(--ink); font-weight: 600; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+  .legend .spot-key { color: #0f766e; font-size: 10px; }
+  /* Keeps the title readable over the 3D labels */
+  .scrim {
+    position: fixed; left: 0; right: 0; top: 0; height: 128px; pointer-events: none;
+    background: linear-gradient(var(--bg) 45%, rgba(227, 239, 242, 0));
+  }
+  #loading {
+    position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; background: var(--bg); color: var(--muted); font-size: 14px; transition: opacity .4s;
+  }
+  #loading.done { opacity: 0; pointer-events: none; }
+  #loading .hex {
+    width: 44px; height: 50px; background: var(--accent);
+    clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); animation: spin 1.4s ease-in-out infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { #loading .hex { animation: none; } }
   button {
     font: inherit; color: var(--ink); background: var(--card);
     border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; cursor: pointer;
@@ -67,6 +98,9 @@
   #card[hidden] { display: none; }
   #card .tag { display: inline-block; font-size: 12px; color: #fff; border-radius: 999px; padding: 2px 10px; }
   #card h2 { margin: 10px 32px 6px 0; font-size: 21px; line-height: 1.35; }
+  #card h2:focus { outline: none; }
+  #card .nav button { max-width: 42%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  #card .nav .pos { align-self: center; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   #card p { color: var(--muted); line-height: 1.6; margin: 0 0 12px; }
   #card ul { padding-left: 18px; margin: 0 0 12px; line-height: 1.7; }
   #card li + li { margin-top: 4px; }
@@ -144,7 +178,11 @@
   @media (max-width: 640px) {
     header h1 { font-size: 18px; }
     header p { font-size: 12px; }
-    .legend { display: none; }
+    .legend {
+      position: fixed; top: 84px; left: 16px; right: 16px; margin: 0; pointer-events: auto;
+      flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+    }
+    .scrim { height: 132px; }
     /* Floating bottom card; the top of the screen stays free for the selected island */
     #card {
       left: 12px; right: 12px; top: auto; width: auto; z-index: 6; padding: 16px;
@@ -178,13 +216,23 @@
 </script>
 </head>
 <body>
+<div id="loading" role="status"><div class="hex"></div><span id="loading-text">新北政見島載入中…</span></div>
+<script>
+  // If the 3D module never starts (CDN blocked, old browser), say so instead of spinning forever
+  setTimeout(() => {
+    if (!document.getElementById('loading').classList.contains('done')) {
+      document.getElementById('loading-text').textContent = '載入失敗，請重新整理或換個瀏覽器試試';
+    }
+  }, 20000);
+</script>
 <div id="stage" role="img" aria-label="14 座六邊形島嶼環繞台北市，組成新北市的 3D 政見地圖，點選島嶼可查看政見內容"></div>
 <div id="labels"></div>
+<div class="scrim" aria-hidden="true"></div>
 <header>
   <div>
     <h1>新北政見島</h1>
     <p>整理自蘇巧慧 2026 新北市長競選網站的 14 項政見 · 非官方作品</p>
-    <div class="legend" id="legend"></div>
+    <div class="legend" id="legend" role="group" aria-label="依分類篩選"></div>
   </div>
   <div class="actions">
     <button id="index-toggle" type="button" aria-expanded="false" aria-controls="index">☰ 清單</button>
@@ -225,8 +273,9 @@
   <button class="close" id="card-close" type="button" aria-label="關閉">×</button>
   <div id="card-body"></div>
   <div class="nav">
-    <button id="prev" type="button">← 上一座</button>
-    <button id="next" type="button">下一座 →</button>
+    <button id="prev" type="button"></button>
+    <span class="pos" id="pos"></span>
+    <button id="next" type="button"></button>
   </div>
 </article>
 <footer>非官方原型 · 內容摘錄自 <a href="https://chiao.tw/policies" target="_blank" rel="noopener">chiao.tw/policies</a>（2026-10-22），以官方網站為準</footer>
@@ -323,6 +372,7 @@ const policyUrl = (p) => `https://chiao.tw/policies/${encodeURIComponent(p.slug)
 // ---------- Renderer / scene ----------
 const stage = document.getElementById('stage');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
+const coarsePointer = matchMedia('(pointer: coarse)').matches;
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
@@ -345,7 +395,7 @@ scene.add(new THREE.HemisphereLight('#fff7ea', '#b9c7c4', 1.6));
 const sun = new THREE.DirectionalLight('#ffffff', 2.4);
 sun.position.set(14, 24, 10);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.setScalar(coarsePointer ? 1024 : 2048);
 Object.assign(sun.shadow.camera, { left: -28, right: 28, top: 28, bottom: -28, near: 1, far: 80 });
 sun.shadow.bias = -0.0005;
 scene.add(sun);
@@ -661,8 +711,10 @@ function updateLabels() {
   spots.forEach((s) => placeLabel(s.label, labelPos.set(s.g.position.x, 2.3, s.g.position.z)));
 }
 
-document.getElementById('legend').innerHTML = Object.values(GROUPS)
-  .map((grp) => `<span><i style="background:${grp.color}"></i>${grp.name}</span>`).join('');
+const legendEl = document.getElementById('legend');
+legendEl.innerHTML = Object.entries(GROUPS)
+  .map(([key, grp]) => `<button type="button" data-filter="${key}" aria-pressed="false"><i style="background:${grp.color}"></i>${grp.name}</button>`)
+  .join('') + '<button type="button" data-filter="spot" aria-pressed="false"><span class="spot-key">◆</span>新北景點</button>';
 
 // ---------- New Taipei landmarks (decorative islets outside the ring) ----------
 function rod(g, a, b, r, color) {
@@ -943,7 +995,8 @@ beach.position.y = -1.03;
 beach.receiveShadow = true;
 scene.add(beach);
 
-const seaGeo = new THREE.PlaneGeometry(260, 260, 80, 80).rotateX(-Math.PI / 2);
+const SEA_SEGMENTS = coarsePointer ? 48 : 80;
+const seaGeo = new THREE.PlaneGeometry(260, 260, SEA_SEGMENTS, SEA_SEGMENTS).rotateX(-Math.PI / 2);
 const seaRest = seaGeo.attributes.position.array.slice();
 const sea = new THREE.Mesh(seaGeo, new THREE.MeshStandardMaterial({ color: '#7fc3dc', roughness: 0.35, metalness: 0.05, flatShading: true }));
 sea.position.y = -1.3;
@@ -1134,6 +1187,11 @@ const homeOffset = () => (camera.aspect < 0.8 ? new THREE.Vector3(0, 92, 48) : n
 let fly = null;
 function flyTo(target, offset) {
   fly = { target: target.clone(), pos: target.clone().add(offset) };
+  if (reduced) {
+    controls.target.copy(fly.target);
+    camera.position.copy(fly.pos);
+    fly = null;
+  }
 }
 controls.addEventListener('start', () => { fly = null; });
 camera.position.copy(HOME_TARGET).add(homeOffset());
@@ -1143,11 +1201,74 @@ controls.target.copy(HOME_TARGET);
 const card = document.getElementById('card');
 const cardBody = document.getElementById('card-body');
 const prevBtn = document.getElementById('prev'), nextBtn = document.getElementById('next');
+const posEl = document.getElementById('pos');
 let selected = -1, selectedSpot = -1;
+let filter = null; // a GROUPS key, 'spot', or null
+let cardOpener = null;
 
-function setNavUnit(unit) {
-  prevBtn.textContent = `← 上一${unit}`;
-  nextBtn.textContent = `下一${unit} →`;
+// Prev/next walks the landmarks, or the policies (only the filtered group when the current one is in it)
+function navList() {
+  if (selectedSpot >= 0) return { list: SPOTS.map((_, k) => k), cur: selectedSpot, name: (k) => SPOTS[k].name, unit: '個', go: selectSpot };
+  const inFilter = filter && POLICIES[selected].group === filter;
+  const list = POLICIES.flatMap((p, k) => (!inFilter || p.group === filter ? [k] : []));
+  return { list, cur: selected, name: (k) => POLICIES[k].short, unit: '座', go: select };
+}
+function step(dir) {
+  const n = navList();
+  n.go(n.list[(n.list.indexOf(n.cur) + dir + n.list.length) % n.list.length]);
+}
+function updateNav() {
+  const n = navList(), pos = n.list.indexOf(n.cur), len = n.list.length;
+  const prev = n.list[(pos - 1 + len) % len], next = n.list[(pos + 1) % len];
+  prevBtn.textContent = `← ${n.name(prev)}`;
+  nextBtn.textContent = `${n.name(next)} →`;
+  prevBtn.setAttribute('aria-label', `上一${n.unit}：${n.name(prev)}`);
+  nextBtn.setAttribute('aria-label', `下一${n.unit}：${n.name(next)}`);
+  prevBtn.hidden = nextBtn.hidden = len < 2;
+  posEl.textContent = `${String(pos + 1).padStart(2, '0')} / ${String(len).padStart(2, '0')}`;
+}
+
+// Islands that are not in focus fade toward grey; dimmed materials are cloned once and cached
+const dimMats = new Map();
+const GREY = new THREE.Color('#d9d9d4');
+function dimOf(m) {
+  if (!dimMats.has(m)) {
+    const d = m.clone();
+    d.color.lerp(GREY, 0.55);
+    if (d.emissive) d.emissiveIntensity *= 0.3;
+    dimMats.set(m, d);
+  }
+  return dimMats.get(m);
+}
+function setIslandDim(g, on) {
+  if (g.userData.dimmed === on) return;
+  g.userData.dimmed = on;
+  g.traverse((o) => {
+    if (!o.isMesh) return;
+    o.userData.mat0 ??= o.material;
+    const base = o.userData.mat0;
+    o.material = on ? (Array.isArray(base) ? base.map(dimOf) : dimOf(base)) : base;
+  });
+}
+function applyDim() {
+  islands.forEach((g, k) => {
+    const dim = selected >= 0 ? k !== selected
+      : selectedSpot >= 0 || filter === 'spot' || (filter !== null && POLICIES[k].group !== filter);
+    setIslandDim(g, dim);
+    labels[k].classList.toggle('dim', dim);
+    labels[k].classList.toggle('active', k === selected);
+  });
+  spots.forEach((s, j) => s.label.classList.toggle('dim',
+    selectedSpot >= 0 ? j !== selectedSpot : selected >= 0 || (filter !== null && filter !== 'spot')));
+  legendEl.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)));
+}
+
+function openCard() {
+  if (card.hidden) cardOpener = document.activeElement; // return focus here when the card closes
+  card.hidden = false;
+  card.scrollTop = 0;
+  updateNav();
+  cardBody.querySelector('h2').focus({ preventScroll: true });
 }
 
 function select(i) {
@@ -1156,7 +1277,7 @@ function select(i) {
   const p = POLICIES[i], grp = GROUPS[p.group];
   cardBody.innerHTML = `
     <span class="tag" style="background:${grp.color}">${grp.name}</span>
-    <h2>${p.title}</h2>
+    <h2 tabindex="-1">${p.title}</h2>
     <p>${p.summary}</p>
     <ul>${p.items.map((t) => `<li>${t}</li>`).join('')}</ul>
     <a class="source" href="${policyUrl(p)}" target="_blank" rel="noopener">閱讀完整政見 ↗</a>
@@ -1164,12 +1285,9 @@ function select(i) {
       <button class="ig" type="button">分享到 IG 限時動態</button>
       <button class="copy" type="button">複製連結</button>
     </div>`;
-  card.hidden = false;
-  card.scrollTop = 0;
-  setNavUnit('座');
+  openCard();
   islands.forEach((g, k) => { g.userData.liftGoal = k === i ? 0.5 : 0; });
-  labels.forEach((el, k) => { el.classList.toggle('dim', k !== i); el.classList.toggle('active', k === i); });
-  spots.forEach((s) => s.label.classList.add('dim'));
+  applyDim();
   focusOn(islands[i].position);
   setHash(`policy/${p.short}`, p.short);
   renderIndex();
@@ -1181,16 +1299,13 @@ function selectSpot(k) {
   const s = SPOTS[k];
   cardBody.innerHTML = `
     <span class="tag" style="background:#0f766e">新北景點</span>
-    <h2>${s.name}</h2>
+    <h2 tabindex="-1">${s.name}</h2>
     <p>${s.desc}</p>
     <a class="source" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.map)}" target="_blank" rel="noopener">在 Google 地圖開啟 ↗</a>
     <div class="share"><button class="copy" type="button">複製連結</button></div>`;
-  card.hidden = false;
-  card.scrollTop = 0;
-  setNavUnit('個');
+  openCard();
   islands.forEach((g) => { g.userData.liftGoal = 0; });
-  labels.forEach((el) => { el.classList.add('dim'); el.classList.remove('active'); });
-  spots.forEach((sp, j) => sp.label.classList.toggle('dim', j !== k));
+  applyDim();
   focusOn(spots[k].g.position);
   setHash(`spot/${s.name}`, s.name);
   renderIndex();
@@ -1200,31 +1315,54 @@ function focusOn(pos) {
   const offset = new THREE.Vector3(5, 7, 9).multiplyScalar(camera.aspect < 0.8 ? 1.5 : 1);
   const target = pos.clone().add(new THREE.Vector3(0, 1, 0));
   // Shift the view so the subject is not hidden behind the card
-  if (camera.aspect >= 0.8) target.add(new THREE.Vector3(1.8, 0, -1.2));
+  if (camera.aspect >= 0.8) target.add(indexEl.hidden ? new THREE.Vector3(1.8, 0, -1.2) : new THREE.Vector3(0.2, 0, -0.15));
   else target.add(new THREE.Vector3(0, -1.8, 1.8)); // phones: lift the subject above the bottom card
   flyTo(target, offset);
 }
 
 function deselect() {
+  const wasOpen = !card.hidden;
   selected = selectedSpot = -1;
   card.hidden = true;
   islands.forEach((g) => { g.userData.liftGoal = 0; });
-  labels.forEach((el) => el.classList.remove('dim', 'active'));
-  spots.forEach((s) => s.label.classList.remove('dim'));
+  applyDim();
   setHash('', '');
   renderIndex();
+  if (!wasOpen) return;
+  // The index list re-renders on every selection, so look the opener up again by its item number
+  if (cardOpener?.dataset.i !== undefined && !document.contains(cardOpener)) cardOpener = listEl.querySelector(`button[data-i="${cardOpener.dataset.i}"]`);
+  if (cardOpener && cardOpener !== document.body && document.contains(cardOpener)) cardOpener.focus();
+  else if (card.contains(document.activeElement)) document.activeElement.blur(); // never leave focus inside the hidden card
 }
 
+legendEl.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-filter]');
+  if (!b) return;
+  filter = filter === b.dataset.filter ? null : b.dataset.filter;
+  if (selected >= 0 || selectedSpot >= 0) deselect();
+  else applyDim();
+});
+
+// Swipe the card sideways on phones to move to the previous/next item
+let swipeStart = null;
+card.addEventListener('touchstart', (e) => { swipeStart = [e.touches[0].clientX, e.touches[0].clientY]; }, { passive: true });
+card.addEventListener('touchend', (e) => {
+  if (!swipeStart) return;
+  const dx = e.changedTouches[0].clientX - swipeStart[0], dy = e.changedTouches[0].clientY - swipeStart[1];
+  swipeStart = null;
+  if (Math.abs(dx) > 60 && Math.abs(dy) < 40) step(dx < 0 ? 1 : -1);
+});
+
 document.getElementById('card-close').addEventListener('click', deselect);
-// Prev/next cycles within whichever list the card is showing: policy islands or landmarks
-function step(dir) {
-  if (selectedSpot >= 0) selectSpot((selectedSpot + dir + SPOTS.length) % SPOTS.length);
-  else select((selected + dir + POLICIES.length) % POLICIES.length);
-}
 prevBtn.addEventListener('click', () => step(-1));
 nextBtn.addEventListener('click', () => step(1));
 document.getElementById('home').addEventListener('click', () => { deselect(); flyTo(HOME_TARGET, homeOffset()); });
 addEventListener('keydown', (e) => {
+  const arrow = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+  if (arrow && !card.hidden && storyEl.hidden && !e.target.closest('input, textarea')) {
+    step(arrow);
+    return;
+  }
   if (e.key !== 'Escape') return;
   if (!storyEl.hidden) closeStory();
   else if (!card.hidden) deselect();
@@ -1232,6 +1370,15 @@ addEventListener('keydown', (e) => {
 });
 
 // ---------- Shareable URL: #policy/<name> or #spot/<name> ----------
+// share/<kind>-NN.html carry per-item link previews and redirect back to the hash URL
+const SITE = location.origin + location.pathname.replace(/index\.html$/, '');
+function shareUrl() {
+  const pad = (n) => String(n + 1).padStart(2, '0');
+  if (selected >= 0) return `${SITE}share/policy-${pad(selected)}.html`;
+  if (selectedSpot >= 0) return `${SITE}share/spot-${pad(selectedSpot)}.html`;
+  return location.href;
+}
+
 function setHash(path, title) {
   history.replaceState(null, '', path ? `#${encodeURI(path)}` : location.pathname + location.search);
   document.title = title ? `${title}｜新北政見島` : '新北政見島';
@@ -1315,15 +1462,25 @@ listEl.addEventListener('click', (e) => {
 // ---------- Sharing: copy link, Instagram story image ----------
 const toastEl = document.getElementById('toast');
 let toastTimer;
-function showToast(msg) {
+function showToast(msg, ms = 4500) {
   toastEl.textContent = msg;
   toastEl.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toastEl.hidden = true; }, 4500);
+  toastTimer = setTimeout(() => { toastEl.hidden = true; }, ms);
+}
+
+function showFirstHint() {
+  try {
+    if (localStorage.getItem('islandHintSeen')) return;
+    localStorage.setItem('islandHintSeen', '1');
+  } catch {
+    // Storage blocked (private mode): show the hint anyway
+  }
+  showToast(`點島看政見 · ${coarsePointer ? '拖曳旋轉、雙指縮放' : '拖曳旋轉、滾輪縮放'} · ☰ 清單可搜尋`, 6000);
 }
 
 function copyLink(btn) {
-  navigator.clipboard.writeText(location.href)
+  navigator.clipboard.writeText(shareUrl())
     .then(() => { btn.textContent = '已複製 ✓'; })
     .catch(() => showToast('無法自動複製，請直接複製網址列的連結'));
 }
@@ -1470,7 +1627,7 @@ function openStory(i, opener) {
   storyShareBtn.hidden = !navigator.canShare?.({ files: [storyFile] });
   storyOpener = opener;
   storyEl.hidden = false;
-  navigator.clipboard?.writeText(location.href).catch(() => {});
+  navigator.clipboard?.writeText(shareUrl()).catch(() => {});
   (storyShareBtn.hidden ? storyDownloadBtn : storyShareBtn).focus();
 }
 
@@ -1525,6 +1682,31 @@ renderer.domElement.addEventListener('pointermove', (e) => {
 // ---------- Loop ----------
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clock = new THREE.Clock();
+
+// Adaptive quality: if the first seconds run under ~40 fps, drop to 1x resolution, then turn shadows off
+const perf = { frames: 0, time: 0, level: 0, settled: false };
+function watchPerf(dt) {
+  if (perf.settled || clock.elapsedTime < 1) return;
+  perf.frames++;
+  perf.time += dt;
+  if (perf.time < 2) return;
+  const fps = perf.frames / perf.time;
+  perf.frames = perf.time = 0;
+  if (fps >= 40) {
+    perf.settled = true;
+    return;
+  }
+  perf.level++;
+  if (perf.level === 1) renderer.setPixelRatio(1);
+  else {
+    renderer.shadowMap.enabled = false;
+    scene.traverse((o) => { if (o.material) [].concat(o.material).forEach((m) => { m.needsUpdate = true; }); });
+    dimMats.forEach((m) => { m.needsUpdate = true; });
+    perf.settled = true;
+  }
+}
+
+let firstFrame = true;
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
   if (!reduced) animators.forEach((fn) => fn(t, dt));
@@ -1551,9 +1733,16 @@ renderer.setAnimationLoop(() => {
   renderer.render(scene, camera);
   updateLabels();
   updatePersonLabels();
+  watchPerf(dt);
+  if (firstFrame) {
+    firstFrame = false;
+    document.getElementById('loading').classList.add('done');
+    if (selected < 0 && selectedSpot < 0) showFirstHint();
+  }
 });
 
 applyHash();
+applyDim();
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
