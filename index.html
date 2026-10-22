@@ -196,6 +196,15 @@
 }
 </script>
 <!-- seo:jsonld:end -->
+<script>
+  // ?debug=1 adds an on-page console (eruda) for diagnosing phones and in-app browsers
+  if (/[?&]debug=1/.test(location.search)) {
+    const d = document.createElement('script');
+    d.src = 'https://cdn.jsdelivr.net/npm/eruda@3.0.1/eruda.js';
+    d.onload = () => window.eruda.init();
+    document.head.appendChild(d);
+  }
+</script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-5H13CQWF3X"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -1719,24 +1728,21 @@ function flexMessage() {
   };
 }
 
-async function shareToLine(fallbackHref) {
-  const item = currentItem();
-  const fallback = () => {
-    track('share', { method: 'line', ...item });
-    if (!window.open(fallbackHref, '_blank', 'noopener')) location.href = fallbackHref;
-  };
-  let liff;
+// LINE's in-app browser (a chat link opened inside LINE) is not a LIFF browser: the external-browser
+// login and the picker's popup window leave it on a blank page, so reopen the site as the LIFF app there
+const inLineApp = /\bLine\//i.test(navigator.userAgent);
+const inLiffBrowser = () => {
   try {
-    liff = await ensureLiff();
+    return Boolean(window.liff?.isInClient());
   } catch {
-    return fallback();
+    return false;
   }
-  if (!liff.isLoggedIn()) {
-    // Login leaves the page; remember what to reopen when LINE sends the person back
-    try { sessionStorage.setItem('pendingLineShare', JSON.stringify({ selected, selectedSpot })); } catch { /* storage blocked */ }
-    liff.login({ redirectUri: location.href.split('#')[0] });
-    return;
-  }
+};
+const itemKey = () => (selected >= 0
+  ? `policy-${String(selected + 1).padStart(2, '0')}`
+  : `spot-${String(selectedSpot + 1).padStart(2, '0')}`);
+
+async function sendFlex(liff, item, fallback) {
   if (!liff.isApiAvailable('shareTargetPicker')) return fallback();
   try {
     const res = await liff.shareTargetPicker([flexMessage()], { isMultiple: true });
@@ -1750,21 +1756,62 @@ async function shareToLine(fallbackHref) {
   }
 }
 
-// Back from LINE login: finish LIFF init, reopen the card, and ask for one more tap
-// (the share picker must be opened by a click, so it cannot start on its own)
+async function shareToLine(fallbackHref) {
+  const item = currentItem();
+  const fallback = () => {
+    track('share', { method: 'line', ...item });
+    if (!window.open(fallbackHref, '_blank', 'noopener')) location.href = fallbackHref;
+  };
+  if (inLineApp && !inLiffBrowser()) {
+    location.href = `https://liff.line.me/${LIFF_ID}/?lineShare=${itemKey()}`;
+    return;
+  }
+  let liff;
+  try {
+    liff = await ensureLiff();
+  } catch {
+    return fallback();
+  }
+  if (!liff.isLoggedIn()) {
+    // Login leaves the page; remember what to reopen when LINE sends the person back
+    try { sessionStorage.setItem('pendingLineShare', JSON.stringify({ selected, selectedSpot })); } catch { /* storage blocked */ }
+    liff.login({ redirectUri: location.href.split('#')[0] });
+    return;
+  }
+  return sendFlex(liff, item, fallback);
+}
+
+// Two ways back into the page with a share in progress:
+// - ?lineShare=<item> after the in-app browser hop to liff.line.me: reopen the item and open the picker
+//   (inside LINE the picker is native, so it does not need a fresh click)
+// - back from LINE login in an external browser: reopen the card and ask for one more tap, because there
+//   the picker is a popup window that only a click may open
 function resumeLineShare() {
   let pending = null;
   try {
     pending = JSON.parse(sessionStorage.getItem('pendingLineShare') || 'null');
     sessionStorage.removeItem('pendingLineShare');
   } catch { /* storage blocked */ }
-  if (!pending && !/[?&](code|liff\.state)=/.test(location.search)) return;
+  if (!pending && !/[?&](code|liff\.state|lineShare)=/.test(location.search)) return;
   ensureLiff().then((liff) => {
+    const url = new URL(location.href); // liff.init has unpacked liff.state into the URL by now
+    const key = url.searchParams.get('lineShare');
+    if (key) {
+      url.searchParams.delete('lineShare');
+      history.replaceState(null, '', url);
+      const [kind, num] = key.split('-');
+      const idx = Number(num) - 1;
+      if (kind === 'policy' && POLICIES[idx]) select(idx);
+      else if (kind === 'spot' && SPOTS[idx]) selectSpot(idx);
+      else return;
+      sendFlex(liff, currentItem(), () => showToast('無法開啟 LINE 分享，請按卡片上的「LINE」再試一次', 6000));
+      return;
+    }
     if (!pending) return;
     if (pending.selected >= 0) select(pending.selected);
     else if (pending.selectedSpot >= 0) selectSpot(pending.selectedSpot);
     if (liff.isLoggedIn()) showToast('已登入 LINE，請再按一次「LINE」傳送卡片', 6000);
-  }).catch(() => {});
+  }).catch((err) => console.warn('LIFF init failed', err));
 }
 
 // ---------- Analytics (GA4 events; no-ops if the tag is blocked) ----------
