@@ -1341,15 +1341,15 @@ animators.push((t, dt) => driftClouds(dt));
 // ---------- People ----------
 const PEOPLE = [
   { name: 'Rose', look: 'female', shirt: '#e86a92', hair: '#5a3825' },
-  { name: 'Chris', look: 'male', shirt: '#3f7fd0', hair: '#2b2b2b' },
+  { name: 'Chris', ride: true, look: 'male', shirt: '#3f7fd0', hair: '#2b2b2b' },
   { name: 'Jack', look: 'male', shirt: '#3a9b6a', hair: '#6b4a2b' },
   { name: '柚子', look: 'male', shirt: '#f2a03d', hair: '#1f1f1f' },
-  { name: 'June', look: 'female', shirt: '#8b5cf6', hair: '#2b2b2b' },
+  { name: 'June', ride: true, look: 'female', shirt: '#8b5cf6', hair: '#2b2b2b' },
   { name: '圓圓', look: 'female', shirt: '#14b8a6', hair: '#7a4a2a' },
   { name: 'Tank', look: 'male', shirt: '#dc2626', hair: '#3b2a1e' },
-  { name: '泰鑫', look: 'male', shirt: '#1e3a8a', hair: '#111111' },
+  { name: '泰鑫', ride: true, look: 'male', shirt: '#1e3a8a', hair: '#111111' },
 ];
-const SKIN = '#f3c9a5', RUN_SPEED = 1.5;
+const SKIN = '#f3c9a5', RUN_SPEED = 1.5, RIDE_SPEED = 2.4;
 
 // Walk graph: inset corners of every island, linked around each rim and to nearby corners of neighboring islands,
 // so people stroll along the island edges instead of walking through buildings
@@ -1368,34 +1368,64 @@ nodes.forEach((n, idx) => {
   });
 });
 
+// Bicycle along +z (the heading), wheels on the ground; numbers are in the person's own scale
+function makeBike(color) {
+  const bike = new THREE.Group();
+  const WHEEL_R = 0.14;
+  const wheels = [-0.21, 0.21].map((z) => {
+    const wheel = new THREE.Group();
+    wheel.position.set(0, WHEEL_R, z);
+    wheel.add(mesh(new THREE.TorusGeometry(WHEEL_R, 0.018, 6, 20).rotateY(Math.PI / 2), '#1f2328'));
+    // Spokes make the spin visible
+    wheel.add(mesh(new THREE.BoxGeometry(0.008, WHEEL_R * 1.9, 0.008), '#9ca3af'));
+    wheel.add(mesh(new THREE.BoxGeometry(0.008, 0.008, WHEEL_R * 1.9), '#9ca3af'));
+    bike.add(wheel);
+    return wheel;
+  });
+  const rear = v3(0, WHEEL_R, -0.21), front = v3(0, WHEEL_R, 0.21);
+  const crank = v3(0, 0.15, -0.02), seat = v3(0, 0.4, -0.08), head = v3(0, 0.4, 0.15), bar = v3(0, 0.46, 0.17);
+  [[rear, crank], [rear, seat], [crank, seat], [crank, head], [seat, head], [head, front], [head, bar]]
+    .forEach(([a, b]) => rod(bike, a, b, 0.016, color));
+  rod(bike, v3(-0.1, 0.46, 0.17), v3(0.1, 0.46, 0.17), 0.014, '#374151');
+  bike.add(mesh(rbox(0.07, 0.03, 0.12, 0.01), '#374151', 0, 0.42, -0.08));
+  return { bike, wheels, wheelRadius: WHEEL_R };
+}
+
 function makePerson(p) {
   const g = new THREE.Group();
+  const body = new THREE.Group();
+  g.add(body);
   const legs = [-0.06, 0.06].map((x) => {
     const leg = mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.22, 6), '#374151', x, 0.22, 0);
     leg.geometry.translate(0, -0.11, 0); // pivot at the hip
-    g.add(leg);
+    body.add(leg);
     return leg;
   });
   const female = p.look === 'female';
-  if (female) g.add(mesh(new THREE.ConeGeometry(0.16, 0.36, 12), p.shirt, 0, 0.38, 0));
-  else g.add(mesh(rbox(0.22, 0.28, 0.14, 0.04), p.shirt, 0, 0.36, 0));
+  if (female) body.add(mesh(new THREE.ConeGeometry(0.16, 0.36, 12), p.shirt, 0, 0.38, 0));
+  else body.add(mesh(rbox(0.22, 0.28, 0.14, 0.04), p.shirt, 0, 0.36, 0));
   const headY = female ? 0.65 : 0.6;
-  g.add(mesh(new THREE.SphereGeometry(0.11, 14, 10), SKIN, 0, headY, 0));
-  g.add(mesh(new THREE.SphereGeometry(0.118, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), p.hair, 0, headY, -0.01));
-  if (female) g.add(mesh(rbox(0.2, 0.24, 0.06, 0.03), p.hair, 0, headY - 0.08, -0.08));
-  [-0.04, 0.04].forEach((x) => g.add(mesh(new THREE.SphereGeometry(0.015, 6, 4), '#1f2328', x, headY + 0.01, 0.1)));
+  body.add(mesh(new THREE.SphereGeometry(0.11, 14, 10), SKIN, 0, headY, 0));
+  body.add(mesh(new THREE.SphereGeometry(0.118, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), p.hair, 0, headY, -0.01));
+  if (female) body.add(mesh(rbox(0.2, 0.24, 0.06, 0.03), p.hair, 0, headY - 0.08, -0.08));
+  [-0.04, 0.04].forEach((x) => body.add(mesh(new THREE.SphereGeometry(0.015, 6, 4), '#1f2328', x, headY + 0.01, 0.1)));
   const shoulder = female ? [0.08, 0.52, 0.3] : [0.14, 0.47, 0];
   const arms = [-1, 1].map((side) => {
     const arm = mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.2, 6), p.shirt, side * shoulder[0], shoulder[1], 0);
     arm.geometry.translate(0, -0.1, 0); // pivot at the shoulder
     arm.rotation.z = side * shoulder[2]; // splay out so arms clear the dress
-    g.add(arm);
+    body.add(arm);
     return arm;
   });
-  g.rotation.order = 'YXZ'; // face the heading first, then lean forward
+  let ride = null;
+  if (p.ride) {
+    ride = makeBike(p.shirt);
+    g.add(ride.bike);
+    body.position.set(0, 0.21, -0.08); // hips on the saddle
+  }
   g.scale.setScalar(1.15);
   scene.add(g);
-  return { g, legs, arms };
+  return { g, body, legs, arms, ride };
 }
 
 const people = PEOPLE.map((p, i) => {
@@ -1411,8 +1441,11 @@ function stepPerson(w, dt) {
   if (w.wait > 0) w.wait -= dt;
   else {
     const a = nodes[w.from], b = nodes[w.to];
-    w.t += (dt * RUN_SPEED) / Math.max(0.01, Math.hypot(b.x - a.x, b.z - a.z));
-    w.phase += dt * 16;
+    const speed = w.ride ? RIDE_SPEED : RUN_SPEED;
+    w.t += (dt * speed) / Math.max(0.01, Math.hypot(b.x - a.x, b.z - a.z));
+    w.phase += dt * (w.ride ? 9 : 16);
+    // Wheels roll by distance travelled; the group is scaled, so divide by the scaled radius
+    w.ride?.wheels.forEach((wheel) => { wheel.rotation.x += (dt * speed) / (w.ride.wheelRadius * 1.15); });
     if (w.t >= 1) {
       const options = nodes[w.to].links.filter((j) => j !== w.from);
       [w.from, w.to, w.t] = [w.to, options[Math.floor(Math.random() * options.length)], 0];
@@ -1424,11 +1457,20 @@ function stepPerson(w, dt) {
   const lift = THREE.MathUtils.lerp(islands[a.island].position.y, islands[b.island].position.y, w.t);
   w.g.position.set(
     THREE.MathUtils.lerp(a.x, b.x, w.t),
-    PATH_TOP + lift + (running ? Math.abs(Math.sin(w.phase)) * 0.05 : 0),
+    PATH_TOP + lift + (running && !w.ride ? Math.abs(Math.sin(w.phase)) * 0.05 : 0),
     THREE.MathUtils.lerp(a.z, b.z, w.t),
   );
   w.g.rotation.y = Math.atan2(b.x - a.x, b.z - a.z);
-  w.g.rotation.x = running ? 0.18 : 0;
+  if (w.ride) {
+    // Lean over the bars, hands on the handlebar, feet turning the pedals
+    w.body.rotation.x = 0.2;
+    const pedal = running ? Math.sin(w.phase) * 0.35 : 0;
+    w.legs[0].rotation.x = -0.35 + pedal;
+    w.legs[1].rotation.x = -0.35 - pedal;
+    w.arms.forEach((arm) => { arm.rotation.x = -0.75; });
+    return;
+  }
+  w.body.rotation.x = running ? 0.18 : 0;
   const swing = running ? Math.sin(w.phase) * 0.8 : 0;
   w.legs[0].rotation.x = swing;
   w.legs[1].rotation.x = -swing;
@@ -1458,7 +1500,7 @@ function updateBridges() {
 }
 
 function updatePersonLabels() {
-  people.forEach((w) => placeLabel(w.label, labelPos.copy(w.g.position).setY(w.g.position.y + 1)));
+  people.forEach((w) => placeLabel(w.label, labelPos.copy(w.g.position).setY(w.g.position.y + (w.ride ? 1.25 : 1))));
 }
 
 // ---------- Camera fly ----------
