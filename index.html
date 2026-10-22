@@ -1724,8 +1724,6 @@ function flexMessage() {
           isPolicy
             ? { type: 'button', style: 'link', height: 'sm', action: { type: 'uri', label: '官方完整政見', uri: policyUrl(p) } }
             : { type: 'button', style: 'link', height: 'sm', action: { type: 'uri', label: 'Google 地圖', uri: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.map)}` } },
-          // Recipients pass the card on: opens the site as the LIFF app, which goes straight to the share picker
-          { type: 'button', style: 'secondary', height: 'sm', action: { type: 'uri', label: '馬上分享', uri: `https://liff.line.me/${LIFF_ID}/?lineShare=${itemKey()}&via=card` } },
         ],
       },
     },
@@ -1746,12 +1744,12 @@ const itemKey = () => (selected >= 0
   ? `policy-${String(selected + 1).padStart(2, '0')}`
   : `spot-${String(selectedSpot + 1).padStart(2, '0')}`);
 
-async function sendFlex(liff, item, fallback, method = 'line_flex') {
+async function sendFlex(liff, item, fallback) {
   if (!liff.isApiAvailable('shareTargetPicker')) return fallback();
   try {
     const res = await liff.shareTargetPicker([flexMessage()], { isMultiple: true });
     if (res) {
-      track('share', { method, ...item });
+      track('share', { method: 'line_flex', ...item });
       showToast('已用 LINE 傳送卡片');
     }
   } catch (err) {
@@ -1801,16 +1799,14 @@ function resumeLineShare() {
     const url = new URL(location.href); // liff.init has unpacked liff.state into the URL by now
     const key = url.searchParams.get('lineShare');
     if (key) {
-      const reshare = url.searchParams.get('via') === 'card'; // 「馬上分享」 on a received card
       url.searchParams.delete('lineShare');
-      url.searchParams.delete('via');
       history.replaceState(null, '', url);
       const [kind, num] = key.split('-');
       const idx = Number(num) - 1;
       if (kind === 'policy' && POLICIES[idx]) select(idx);
       else if (kind === 'spot' && SPOTS[idx]) selectSpot(idx);
       else return;
-      sendFlex(liff, currentItem(), () => showToast('無法開啟 LINE 分享，請按卡片上的「LINE」再試一次', 6000), reshare ? 'line_flex_reshare' : 'line_flex');
+      sendFlex(liff, currentItem(), () => showToast('無法開啟 LINE 分享，請按卡片上的「LINE」再試一次', 6000));
       return;
     }
     if (!pending) return;
