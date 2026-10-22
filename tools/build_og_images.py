@@ -1,8 +1,10 @@
-"""Render og/<item>.png: one 1200x630 link-preview card per policy and landmark.
+"""Render og/<item>.png: one 1200x630 link-preview card per policy and landmark,
+and og/line/<item>.png: the card's 3D snapshot alone, for the LINE Flex card's hero.
 
 The cards include a 3D snapshot, so the app draws them itself (index.html?og=policy-12)
 and this script screenshots each one with agent-browser. Run it after changing the
-data or the look, then run build_static.py so the pages point at the images:
+data or the look, then run build_static.py so the pages point at the images.
+Needs agent-browser and macOS `sips` (for the crop):
 
     python3 tools/build_og_images.py && python3 tools/build_static.py
 """
@@ -34,7 +36,12 @@ server = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), handler)
 threading.Thread(target=server.serve_forever, daemon=True).start()
 
 out = ROOT / "og"
-out.mkdir(exist_ok=True)
+line_out = out / "line"
+line_out.mkdir(parents=True, exist_ok=True)
+
+# The snapshot sits at (56, 56), 518 px square, in makeOgCanvas; keep its middle 3:2 band.
+# Flex shows the title and points as text, so the hero carries only the picture.
+CROP_W, CROP_H, CROP_X, CROP_Y = 518, 345, 56, 56 + (518 - 345) // 2
 try:
     browser("open", "about:blank")
     browser("set", "viewport", "1200", "630")
@@ -47,6 +54,11 @@ try:
         else:
             raise SystemExit(f"timed out rendering {key}")
         browser("screenshot", str(out / f"{key}.png"))
+        subprocess.run(
+            ["sips", "-c", str(CROP_H), str(CROP_W), "--cropOffset", str(CROP_Y), str(CROP_X), str(out / f"{key}.png"), "--out", str(line_out / f"{key}.png")],
+            capture_output=True,
+            check=True,
+        )
         print("rendered", key)
 finally:
     subprocess.run(["agent-browser", "--session", SESSION, "close"], capture_output=True)

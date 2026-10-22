@@ -1697,7 +1697,8 @@ function flexMessage() {
     contents: {
       type: 'bubble',
       size: 'mega',
-      hero: { type: 'image', url: `${SITE}og-line.png`, size: 'full', aspectRatio: '1.91:1', aspectMode: 'cover', action: { type: 'uri', uri: link } },
+      // The item's own 3D snapshot, cropped from its link-preview card by tools/build_og_images.py
+      hero: { type: 'image', url: `${SITE}og/line/${itemKey()}.png`, size: 'full', aspectRatio: '3:2', aspectMode: 'cover', action: { type: 'uri', uri: link } },
       body: {
         type: 'box',
         layout: 'vertical',
