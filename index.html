@@ -201,7 +201,10 @@
   window.dataLayer = window.dataLayer || [];
   function gtag() { dataLayer.push(arguments); }
   gtag('js', new Date());
-  gtag('config', 'G-5H13CQWF3X');
+  // Drop LINE login callback params (one-time auth code) from what GA4 records
+  const gaUrl = new URL(location.href);
+  ['code', 'state', 'liffClientId', 'liffRedirectUri', 'liff.state'].forEach((k) => gaUrl.searchParams.delete(k));
+  gtag('config', 'G-5H13CQWF3X', { page_location: gaUrl.href });
 </script>
 <style>
   :root {
@@ -1535,6 +1538,7 @@ function openCard() {
   card.hidden = false;
   card.scrollTop = 0;
   updateNav();
+  ensureLiff().catch(() => {});
   cardBody.querySelector('h2').focus({ preventScroll: true });
 }
 
@@ -1653,6 +1657,114 @@ function shareUrl(source) {
   if (selected >= 0) return `${SITE}share/policy-${pad(selected)}.html${utm}`;
   if (selectedSpot >= 0) return `${SITE}share/spot-${pad(selectedSpot)}.html${utm}`;
   return location.href;
+}
+
+// ---------- LINE: send a Flex card through LIFF, falling back to the plain link share ----------
+const LIFF_ID = '2012159254-NxU1V9As';
+let liffReady = null;
+function ensureLiff() {
+  liffReady ??= new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+    script.onload = () => window.liff.init({ liffId: LIFF_ID }).then(() => resolve(window.liff), reject);
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+  return liffReady;
+}
+
+function flexMessage() {
+  const isPolicy = selected >= 0;
+  const p = isPolicy ? POLICIES[selected] : SPOTS[selectedSpot];
+  const title = isPolicy ? p.title : p.name;
+  const tag = isPolicy ? GROUPS[p.group].name : '新北景點';
+  const color = isPolicy ? GROUPS[p.group].color : '#0f766e';
+  const link = shareUrl('line_flex');
+  const text = (t, extra = {}) => ({ type: 'text', text: t, wrap: true, ...extra });
+  return {
+    type: 'flex',
+    altText: `${title}｜新北政見島`,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      hero: { type: 'image', url: `${SITE}og-line.png`, size: 'full', aspectRatio: '1.91:1', aspectMode: 'cover', action: { type: 'uri', uri: link } },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          { type: 'box', layout: 'horizontal', contents: [{
+            type: 'box', layout: 'vertical', flex: 0, backgroundColor: color, cornerRadius: 'md',
+            paddingStart: '8px', paddingEnd: '8px', paddingTop: '2px', paddingBottom: '2px',
+            contents: [text(tag, { size: 'xxs', color: '#ffffff', weight: 'bold', wrap: false })],
+          }] },
+          text(title, { weight: 'bold', size: 'lg' }),
+          text(isPolicy ? p.summary : p.desc, { size: 'sm', color: '#5b6370' }),
+          ...(isPolicy ? p.items.slice(0, 3).map((item) => text(`• ${item}`, { size: 'sm', color: '#1f2328' })) : []),
+          text('非官方整理，以官方網站為準', { size: 'xxs', color: '#9ca3af', margin: 'md' }),
+        ],
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          { type: 'button', style: 'primary', color, height: 'sm', action: { type: 'uri', label: isPolicy ? '看 3D 政見島' : '看 3D 地圖', uri: link } },
+          isPolicy
+            ? { type: 'button', style: 'link', height: 'sm', action: { type: 'uri', label: '官方完整政見', uri: policyUrl(p) } }
+            : { type: 'button', style: 'link', height: 'sm', action: { type: 'uri', label: 'Google 地圖', uri: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.map)}` } },
+        ],
+      },
+    },
+  };
+}
+
+async function shareToLine(fallbackHref) {
+  const item = currentItem();
+  const fallback = () => {
+    track('share', { method: 'line', ...item });
+    if (!window.open(fallbackHref, '_blank', 'noopener')) location.href = fallbackHref;
+  };
+  let liff;
+  try {
+    liff = await ensureLiff();
+  } catch {
+    return fallback();
+  }
+  if (!liff.isLoggedIn()) {
+    // Login leaves the page; remember what to reopen when LINE sends the person back
+    try { sessionStorage.setItem('pendingLineShare', JSON.stringify({ selected, selectedSpot })); } catch { /* storage blocked */ }
+    liff.login({ redirectUri: location.href.split('#')[0] });
+    return;
+  }
+  if (!liff.isApiAvailable('shareTargetPicker')) return fallback();
+  try {
+    const res = await liff.shareTargetPicker([flexMessage()], { isMultiple: true });
+    if (res) {
+      track('share', { method: 'line_flex', ...item });
+      showToast('已用 LINE 傳送卡片');
+    }
+  } catch (err) {
+    console.warn('shareTargetPicker failed', err);
+    fallback();
+  }
+}
+
+// Back from LINE login: finish LIFF init, reopen the card, and ask for one more tap
+// (the share picker must be opened by a click, so it cannot start on its own)
+function resumeLineShare() {
+  let pending = null;
+  try {
+    pending = JSON.parse(sessionStorage.getItem('pendingLineShare') || 'null');
+    sessionStorage.removeItem('pendingLineShare');
+  } catch { /* storage blocked */ }
+  if (!pending && !/[?&](code|liff\.state)=/.test(location.search)) return;
+  ensureLiff().then((liff) => {
+    if (!pending) return;
+    if (pending.selected >= 0) select(pending.selected);
+    else if (pending.selectedSpot >= 0) selectSpot(pending.selectedSpot);
+    if (liff.isLoggedIn()) showToast('已登入 LINE，請再按一次「LINE」傳送卡片', 6000);
+  }).catch(() => {});
 }
 
 // ---------- Analytics (GA4 events; no-ops if the tag is blocked) ----------
@@ -1959,6 +2071,11 @@ storyEl.addEventListener('click', (e) => { if (e.target === storyEl) closeStory(
 
 cardBody.addEventListener('click', (e) => {
   const social = e.target.closest('a[data-share]');
+  if (social?.dataset.share === 'line') {
+    e.preventDefault();
+    shareToLine(social.href);
+    return;
+  }
   if (social) track('share', { method: social.dataset.share, ...currentItem() });
   if (e.target.closest('.copy')) copyLink(e.target.closest('.copy'));
   else if (e.target.closest('.ig') && selected >= 0) openStory(selected, e.target.closest('.ig'));
@@ -2053,6 +2170,7 @@ renderer.setAnimationLoop(() => {
 
 applyHash();
 applyDim();
+resumeLineShare();
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
