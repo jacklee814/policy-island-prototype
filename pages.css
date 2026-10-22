@@ -1,0 +1,42 @@
+/* Shared styles for the text pages (policy/, spot/, about/) */
+:root {
+  --bg: #f7f4ee;
+  --ink: #1f2328;
+  --muted: #5b6370;
+  --card: #fffdf8;
+  --line: #e3dccd;
+  --accent: #e0663d;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); line-height: 1.75;
+  font-family: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", sans-serif;
+}
+a { color: var(--accent); }
+.site-header, main, .site-footer { max-width: 760px; margin: 0 auto; padding: 0 16px; }
+.site-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding-top: 18px; padding-bottom: 6px; }
+.site-header .brand { color: var(--ink); font-weight: 700; font-size: 18px; text-decoration: none; }
+.site-header nav { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; }
+.breadcrumb { margin: 18px 0 4px; font-size: 13px; color: var(--muted); }
+.breadcrumb a { color: var(--muted); }
+h1 { margin: 8px 0 8px; font-size: 28px; line-height: 1.35; }
+h2 { margin: 32px 0 8px; font-size: 20px; }
+.tag { display: inline-block; padding: 2px 12px; border-radius: 999px; color: #fff; font-size: 13px; font-weight: 600; }
+.lead { font-size: 17px; color: var(--muted); }
+.points { padding-left: 22px; }
+.points li + li { margin-top: 6px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+.button {
+  display: inline-block; padding: 10px 18px; border-radius: 10px; font-weight: 600; text-decoration: none;
+  border: 1px solid var(--line); background: var(--card); color: var(--ink);
+}
+.button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pager { display: flex; justify-content: space-between; gap: 12px; margin: 28px 0; font-size: 15px; }
+.list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.list a { display: block; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); text-decoration: none; }
+.list a:hover { border-color: var(--accent); }
+.list .t { font-weight: 600; }
+.list .s { display: block; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.note { margin-top: 28px; padding: 12px 14px; border-radius: 12px; background: #efe9dd; color: var(--muted); font-size: 14px; }
+.site-footer { padding-top: 24px; padding-bottom: 40px; color: var(--muted); font-size: 13px; }
