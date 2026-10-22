@@ -50,6 +50,7 @@
   header h1 { margin: 0; font-size: 20px; }
   header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
   header button { pointer-events: auto; flex: none; }
+  .actions { display: flex; gap: 8px; flex: none; }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 12px; color: var(--muted); }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
   button {
@@ -69,7 +70,51 @@
   #card p { color: var(--muted); line-height: 1.6; margin: 0 0 12px; }
   #card ul { padding-left: 18px; margin: 0 0 12px; line-height: 1.7; }
   #card li + li { margin-top: 4px; }
-  #card .source { display: inline-block; margin-bottom: 16px; color: var(--accent); font-size: 14px; font-weight: 600; }
+  #card .source { display: inline-block; margin-bottom: 12px; color: var(--accent); font-size: 14px; font-weight: 600; }
+  #card .share { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  #card .share button { font-size: 13px; padding: 6px 12px; }
+  #card .share .ig { color: #fff; border: none; background: linear-gradient(45deg, #f58529, #dd2a7b 55%, #8134af); }
+  /* Label level of detail: hide runner names when zoomed out, shorten island names on narrow screens */
+  #labels.far .label.person { display: none; }
+  #labels.compact .label:not(.active):not(.spot) .name { display: none; }
+  #labels.compact .label:not(.active):not(.spot) .n { margin-right: 0; }
+  #index {
+    position: fixed; left: 16px; top: 116px; bottom: 16px; width: 300px; z-index: 5;
+    display: flex; flex-direction: column; overflow: hidden;
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .12);
+  }
+  #index[hidden] { display: none; }
+  .index-head { display: flex; gap: 6px; padding: 12px 12px 8px; }
+  #search {
+    flex: 1; min-width: 0; font: inherit; font-size: 15px; color: var(--ink);
+    padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff;
+  }
+  #index .close { border: none; background: none; font-size: 22px; padding: 2px 8px; }
+  .tabs { display: flex; gap: 6px; padding: 0 12px 8px; }
+  .tabs button { flex: 1; padding: 6px; font-size: 14px; }
+  .tabs button[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .tabs span { font-size: 12px; opacity: .7; margin-left: 2px; }
+  #index-list { list-style: none; margin: 0; padding: 0 8px 12px; overflow: auto; flex: 1; }
+  #index-list button {
+    width: 100%; display: flex; align-items: flex-start; gap: 10px; text-align: left;
+    border: none; background: none; padding: 10px 8px; border-radius: 10px;
+  }
+  #index-list button:hover, #index-list button[aria-current="true"] { background: #f1ebe0; }
+  #index-list .dot { flex: none; width: 10px; height: 10px; border-radius: 3px; margin-top: 6px; }
+  #index-list .t { font-size: 14px; font-weight: 600; }
+  #index-list .s {
+    margin-top: 2px; color: var(--muted); font-size: 12px; line-height: 1.45;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  #index-list mark { background: #fde68a; color: inherit; border-radius: 2px; }
+  #index-empty { margin: 4px 20px; color: var(--muted); font-size: 14px; }
+  #toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 10;
+    max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 12px;
+    background: rgba(31, 35, 40, .92); color: #fff; font-size: 14px; line-height: 1.5; text-align: center;
+  }
+  #toast[hidden] { display: none; }
   #card .close { position: absolute; top: 8px; right: 8px; border: none; background: none; font-size: 22px; padding: 4px 10px; }
   #card .nav { display: flex; justify-content: space-between; gap: 8px; }
   .label.spot { background: #0f766e; border-color: #0f766e; color: #fff; font-size: 12px; }
@@ -80,6 +125,7 @@
     header p { font-size: 12px; }
     .legend { display: none; }
     #card { left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; max-height: 52%; }
+    #index { left: 0; right: 0; top: auto; bottom: 0; width: auto; height: 72%; border-radius: 16px 16px 0 0; }
     .label { font-size: 11px; padding: 3px 8px; }
     footer { display: none; }
   }
@@ -102,8 +148,24 @@
     <p>整理自蘇巧慧 2026 新北市長競選網站的 14 項政見 · 非官方作品</p>
     <div class="legend" id="legend"></div>
   </div>
-  <button id="home" type="button">全景</button>
+  <div class="actions">
+    <button id="index-toggle" type="button" aria-expanded="false" aria-controls="index">☰ 清單</button>
+    <button id="home" type="button">全景</button>
+  </div>
 </header>
+<aside id="index" hidden aria-label="政見與景點清單">
+  <div class="index-head">
+    <input id="search" type="search" placeholder="搜尋政見、景點、關鍵字…" aria-label="搜尋政見與景點" autocomplete="off">
+    <button class="close" id="index-close" type="button" aria-label="關閉清單">×</button>
+  </div>
+  <div class="tabs" role="tablist">
+    <button id="tab-policies" type="button" role="tab" aria-selected="true">政見 <span></span></button>
+    <button id="tab-spots" type="button" role="tab" aria-selected="false">景點 <span></span></button>
+  </div>
+  <ul id="index-list"></ul>
+  <p id="index-empty" hidden>找不到符合的項目</p>
+</aside>
+<div id="toast" role="status" hidden></div>
 <article id="card" hidden aria-live="polite">
   <button class="close" id="card-close" type="button" aria-label="關閉">×</button>
   <div id="card-body"></div>
@@ -525,7 +587,8 @@ const labels = POLICIES.map((p, i) => {
   const el = document.createElement('button');
   el.type = 'button';
   el.className = 'label';
-  el.innerHTML = `<span class="n">${String(i + 1).padStart(2, '0')}</span>${p.short}`;
+  el.innerHTML = `<span class="n">${String(i + 1).padStart(2, '0')}</span><span class="name">${p.short}</span>`;
+  el.setAttribute('aria-label', p.short);
   el.addEventListener('click', () => select(i));
   labelsEl.appendChild(el);
   return el;
@@ -1041,7 +1104,11 @@ function select(i) {
     <h2>${p.title}</h2>
     <p>${p.summary}</p>
     <ul>${p.items.map((t) => `<li>${t}</li>`).join('')}</ul>
-    <a class="source" href="${policyUrl(p)}" target="_blank" rel="noopener">閱讀完整政見 ↗</a>`;
+    <a class="source" href="${policyUrl(p)}" target="_blank" rel="noopener">閱讀完整政見 ↗</a>
+    <div class="share">
+      <button class="ig" type="button">分享到 IG 限時動態</button>
+      <button class="copy" type="button">複製連結</button>
+    </div>`;
   card.hidden = false;
   card.scrollTop = 0;
   setNavUnit('座');
@@ -1049,6 +1116,8 @@ function select(i) {
   labels.forEach((el, k) => { el.classList.toggle('dim', k !== i); el.classList.toggle('active', k === i); });
   spots.forEach((s) => s.label.classList.add('dim'));
   focusOn(islands[i].position);
+  setHash(`policy/${p.short}`, p.short);
+  renderIndex();
 }
 
 function selectSpot(k) {
@@ -1059,7 +1128,8 @@ function selectSpot(k) {
     <span class="tag" style="background:#0f766e">新北景點</span>
     <h2>${s.name}</h2>
     <p>${s.desc}</p>
-    <a class="source" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.map)}" target="_blank" rel="noopener">在 Google 地圖開啟 ↗</a>`;
+    <a class="source" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.map)}" target="_blank" rel="noopener">在 Google 地圖開啟 ↗</a>
+    <div class="share"><button class="copy" type="button">複製連結</button></div>`;
   card.hidden = false;
   card.scrollTop = 0;
   setNavUnit('個');
@@ -1067,6 +1137,8 @@ function selectSpot(k) {
   labels.forEach((el) => { el.classList.add('dim'); el.classList.remove('active'); });
   spots.forEach((sp, j) => sp.label.classList.toggle('dim', j !== k));
   focusOn(spots[k].g.position);
+  setHash(`spot/${s.name}`, s.name);
+  renderIndex();
 }
 
 function focusOn(pos) {
@@ -1084,6 +1156,8 @@ function deselect() {
   islands.forEach((g) => { g.userData.liftGoal = 0; });
   labels.forEach((el) => el.classList.remove('dim', 'active'));
   spots.forEach((s) => s.label.classList.remove('dim'));
+  setHash('', '');
+  renderIndex();
 }
 
 document.getElementById('card-close').addEventListener('click', deselect);
@@ -1095,7 +1169,256 @@ function step(dir) {
 prevBtn.addEventListener('click', () => step(-1));
 nextBtn.addEventListener('click', () => step(1));
 document.getElementById('home').addEventListener('click', () => { deselect(); flyTo(HOME_TARGET, homeOffset()); });
-addEventListener('keydown', (e) => { if (e.key === 'Escape') deselect(); });
+addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!card.hidden) deselect();
+  else if (!indexEl.hidden) toggleIndex(false);
+});
+
+// ---------- Shareable URL: #policy/<name> or #spot/<name> ----------
+function setHash(path, title) {
+  history.replaceState(null, '', path ? `#${encodeURI(path)}` : location.pathname + location.search);
+  document.title = title ? `${title}｜新北政見島` : '新北政見島';
+}
+function applyHash() {
+  const [kind, name] = decodeURIComponent(location.hash.slice(1)).split('/');
+  const i = POLICIES.findIndex((p) => p.short === name);
+  const k = SPOTS.findIndex((s) => s.name === name);
+  if (kind === 'policy' && i >= 0) select(i);
+  else if (kind === 'spot' && k >= 0) selectSpot(k);
+}
+addEventListener('hashchange', applyHash);
+
+// ---------- Index panel: tabs + search ----------
+const indexEl = document.getElementById('index');
+const indexToggle = document.getElementById('index-toggle');
+const searchEl = document.getElementById('search');
+const listEl = document.getElementById('index-list');
+const emptyEl = document.getElementById('index-empty');
+const tabPolicies = document.getElementById('tab-policies'), tabSpots = document.getElementById('tab-spots');
+let indexTab = 'policies';
+const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const highlight = (text, q) => (q ? esc(text).split(esc(q)).join(`<mark>${esc(q)}</mark>`) : esc(text));
+
+const INDEX = {
+  policies: POLICIES.map((p, i) => ({
+    i, title: `${String(i + 1).padStart(2, '0')} ${p.short}`, color: GROUPS[p.group].color,
+    fields: [p.summary, ...p.items], haystack: [p.short, p.title, GROUPS[p.group].name, p.summary, ...p.items].join(' '),
+  })),
+  spots: SPOTS.map((s, i) => ({ i, title: s.name, color: '#0f766e', fields: [s.desc], haystack: [s.name, s.desc].join(' ') })),
+};
+
+function renderIndex() {
+  const q = searchEl.value.trim();
+  const matches = (it) => !q || it.haystack.toLowerCase().includes(q.toLowerCase());
+  tabPolicies.querySelector('span').textContent = INDEX.policies.filter(matches).length;
+  tabSpots.querySelector('span').textContent = INDEX.spots.filter(matches).length;
+  const current = indexTab === 'policies' ? selected : selectedSpot;
+  const items = INDEX[indexTab].filter(matches);
+  listEl.innerHTML = items.map((it) => {
+    // Show the field that matched the query, so search results explain themselves
+    const snippet = (q && it.fields.find((f) => f.toLowerCase().includes(q.toLowerCase()))) || it.fields[0];
+    return `<li><button type="button" data-i="${it.i}"${it.i === current ? ' aria-current="true"' : ''}>
+      <i class="dot" style="background:${it.color}"></i>
+      <span><div class="t">${highlight(it.title, q)}</div><div class="s">${highlight(snippet, q)}</div></span>
+    </button></li>`;
+  }).join('');
+  emptyEl.hidden = items.length > 0;
+}
+
+function setTab(tab) {
+  indexTab = tab;
+  tabPolicies.setAttribute('aria-selected', String(tab === 'policies'));
+  tabSpots.setAttribute('aria-selected', String(tab === 'spots'));
+  renderIndex();
+}
+
+function toggleIndex(open = indexEl.hidden) {
+  indexEl.hidden = !open;
+  indexToggle.setAttribute('aria-expanded', String(open));
+  if (open) {
+    renderIndex();
+    if (camera.aspect >= 0.8) searchEl.focus(); // skip on phones so the keyboard does not cover the list
+  }
+}
+
+indexToggle.addEventListener('click', () => toggleIndex());
+document.getElementById('index-close').addEventListener('click', () => toggleIndex(false));
+tabPolicies.addEventListener('click', () => setTab('policies'));
+tabSpots.addEventListener('click', () => setTab('spots'));
+searchEl.addEventListener('input', renderIndex);
+listEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-i]');
+  if (!btn) return;
+  const i = Number(btn.dataset.i);
+  if (indexTab === 'policies') select(i);
+  else selectSpot(i);
+  if (camera.aspect < 0.8) toggleIndex(false); // the card takes the bottom of the screen on phones
+});
+
+// ---------- Sharing: copy link, Instagram story image ----------
+const toastEl = document.getElementById('toast');
+let toastTimer;
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastEl.hidden = true; }, 4500);
+}
+
+function copyLink(btn) {
+  navigator.clipboard.writeText(location.href)
+    .then(() => { btn.textContent = '已複製 ✓'; })
+    .catch(() => showToast('無法自動複製，請直接複製網址列的連結'));
+}
+
+const STORY_FONT = '"PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif';
+const NO_LINE_START = '，。、；：！？）」』…%';
+function wrapText(ctx, text, maxWidth) {
+  const lines = [];
+  let line = '';
+  for (const ch of text) {
+    // Closing punctuation never starts a line (kinsoku); let it overhang instead
+    if (line && ctx.measureText(line + ch).width > maxWidth && !NO_LINE_START.includes(ch)) {
+      lines.push(line);
+      line = ch.trimStart();
+    } else line += ch;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+function drawLines(ctx, lines, x, y, lineHeight, maxLines) {
+  lines.slice(0, maxLines).forEach((line, k) => {
+    const last = k === maxLines - 1 && lines.length > maxLines;
+    ctx.fillText(last ? `${line.slice(0, -1)}…` : line, x, y + k * lineHeight);
+  });
+  return y + Math.min(lines.length, maxLines) * lineHeight;
+}
+
+// Render the island from a fixed angle and copy a centered square straight off the WebGL canvas.
+// This must stay synchronous: the drawing buffer is only readable until the browser composites the frame.
+function drawIslandShot(ctx, i, x, y, size) {
+  const canvas = renderer.domElement;
+  const aspect = canvas.width / canvas.height;
+  const target = islands[i].position.clone().add(new THREE.Vector3(0, 0.9, 0));
+  // Keep a 35° view across the shorter side, so portrait screens are not cropped
+  const vFov = aspect < 1 ? THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(17.5)) / aspect)) : 35;
+  const shotCam = new THREE.PerspectiveCamera(vFov, aspect, 0.1, 200);
+  shotCam.position.copy(target).add(new THREE.Vector3(6, 7.5, 9.5));
+  shotCam.lookAt(target);
+  const fog = [scene.fog.near, scene.fog.far];
+  [scene.fog.near, scene.fog.far] = [30, 140];
+  renderer.render(scene, shotCam);
+  const side = Math.min(canvas.width, canvas.height);
+  ctx.drawImage(canvas, (canvas.width - side) / 2, (canvas.height - side) / 2, side, side, x, y, size, size);
+  [scene.fog.near, scene.fog.far] = fog;
+}
+
+function makeStoryCanvas(i) {
+  const W = 1080, H = 1920, PAD = 90;
+  const p = POLICIES[i], grp = GROUPS[p.group];
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext('2d');
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, shade(grp.color, 0.82));
+  bg.addColorStop(1, '#fffdf8');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  ctx.textBaseline = 'top';
+
+  ctx.fillStyle = '#1f2328';
+  ctx.font = `700 40px ${STORY_FONT}`;
+  ctx.fillText('新北政見島', PAD, 90);
+  ctx.fillStyle = '#5b6370';
+  ctx.font = `400 30px ${STORY_FONT}`;
+  ctx.textAlign = 'right';
+  ctx.fillText('非官方整理', W - PAD, 96);
+  ctx.textAlign = 'left';
+
+  const shot = 760, shotX = (W - shot) / 2, shotY = 170;
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(shotX, shotY, shot, shot, 40);
+  ctx.clip();
+  drawIslandShot(ctx, i, shotX, shotY, shot);
+  ctx.restore();
+
+  let y = shotY + shot + 60;
+  ctx.font = `700 30px ${STORY_FONT}`;
+  const tagW = ctx.measureText(grp.name).width + 44;
+  ctx.fillStyle = grp.color;
+  ctx.beginPath();
+  ctx.roundRect(PAD, y, tagW, 52, 26);
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(grp.name, PAD + 22, y + 10);
+  y += 80;
+
+  ctx.fillStyle = '#1f2328';
+  ctx.font = `700 64px ${STORY_FONT}`;
+  y = drawLines(ctx, wrapText(ctx, p.title, W - PAD * 2), PAD, y, 80, 2) + 16;
+  ctx.fillStyle = '#5b6370';
+  ctx.font = `400 36px ${STORY_FONT}`;
+  y = drawLines(ctx, wrapText(ctx, p.summary, W - PAD * 2), PAD, y, 52, 3) + 28;
+
+  ctx.font = `400 34px ${STORY_FONT}`;
+  for (const item of p.items) {
+    const lines = wrapText(ctx, item, W - PAD * 2 - 40);
+    if (y + Math.min(lines.length, 2) * 48 > H - 190) break;
+    ctx.fillStyle = grp.color;
+    ctx.beginPath();
+    ctx.arc(PAD + 10, y + 21, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#1f2328';
+    y = drawLines(ctx, lines, PAD + 40, y, 48, 2) + 12;
+  }
+
+  ctx.fillStyle = '#5b6370';
+  ctx.font = `400 28px ${STORY_FONT}`;
+  ctx.fillText('完整政見：chiao.tw/policies', PAD, H - 150);
+  ctx.fillText('內容整理自蘇巧慧 2026 競選網站，以官方網站為準', PAD, H - 108);
+  return c;
+}
+
+// Synchronous PNG encoding keeps navigator.share inside the click's user activation (Safari is strict about this)
+function canvasToBlob(c) {
+  const bin = atob(c.toDataURL('image/png').split(',')[1]);
+  const bytes = new Uint8Array(bin.length);
+  for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+  return new Blob([bytes], { type: 'image/png' });
+}
+
+function downloadBlob(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function shareStory(i) {
+  const blob = canvasToBlob(makeStoryCanvas(i));
+  const file = new File([blob], `新北政見島-${POLICIES[i].short}.png`, { type: 'image/png' });
+  const touch = matchMedia('(pointer: coarse)').matches;
+  if (touch && navigator.canShare?.({ files: [file] })) {
+    // Share only the file: adding text or a URL makes some platforms hide Instagram from the share sheet
+    navigator.share({ files: [file] }).catch((e) => {
+      if (e.name !== 'AbortError') downloadBlob(blob, file.name);
+    });
+    showToast('選擇 Instagram →「限時動態」。網址已複製，可用「連結」貼紙貼上');
+  } else {
+    downloadBlob(blob, file.name);
+    showToast('已下載限時動態圖片，上傳到 IG 限時動態後，可用「連結」貼紙貼上已複製的網址');
+  }
+  navigator.clipboard?.writeText(location.href).catch(() => {});
+}
+
+cardBody.addEventListener('click', (e) => {
+  if (e.target.closest('.copy')) copyLink(e.target.closest('.copy'));
+  else if (e.target.closest('.ig') && selected >= 0) shareStory(selected);
+});
 
 // ---------- Picking (click vs drag) ----------
 const raycaster = new THREE.Raycaster();
@@ -1146,10 +1469,14 @@ renderer.setAnimationLoop(() => {
   const viewDist = camera.position.distanceTo(controls.target);
   scene.fog.near = viewDist + 15;
   scene.fog.far = viewDist + 110;
+  labelsEl.classList.toggle('far', viewDist > 32);
+  labelsEl.classList.toggle('compact', camera.aspect < 0.8 && viewDist > 60);
   renderer.render(scene, camera);
   updateLabels();
   updatePersonLabels();
 });
+
+applyHash();
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
