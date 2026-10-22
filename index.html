@@ -72,7 +72,6 @@
   #card .source { display: inline-block; margin-bottom: 16px; color: var(--accent); font-size: 14px; font-weight: 600; }
   #card .close { position: absolute; top: 8px; right: 8px; border: none; background: none; font-size: 22px; padding: 4px 10px; }
   #card .nav { display: flex; justify-content: space-between; gap: 8px; }
-  #card .nav[hidden] { display: none; }
   .label.spot { background: #0f766e; border-color: #0f766e; color: #fff; font-size: 12px; }
   .label.spot::before { content: "◆"; margin-right: 5px; font-size: 10px; color: #99f6e4; }
   footer { position: fixed; left: 16px; bottom: 12px; font-size: 12px; color: var(--muted); }
@@ -874,11 +873,17 @@ controls.target.copy(HOME_TARGET);
 // ---------- Selection ----------
 const card = document.getElementById('card');
 const cardBody = document.getElementById('card-body');
-const nav = card.querySelector('.nav');
-let selected = -1;
+const prevBtn = document.getElementById('prev'), nextBtn = document.getElementById('next');
+let selected = -1, selectedSpot = -1;
+
+function setNavUnit(unit) {
+  prevBtn.textContent = `← 上一${unit}`;
+  nextBtn.textContent = `下一${unit} →`;
+}
 
 function select(i) {
   selected = i;
+  selectedSpot = -1;
   const p = POLICIES[i], grp = GROUPS[p.group];
   cardBody.innerHTML = `
     <span class="tag" style="background:${grp.color}">${grp.name}</span>
@@ -888,7 +893,7 @@ function select(i) {
     <a class="source" href="${policyUrl(p)}" target="_blank" rel="noopener">閱讀完整政見 ↗</a>`;
   card.hidden = false;
   card.scrollTop = 0;
-  nav.hidden = false;
+  setNavUnit('座');
   islands.forEach((g, k) => { g.userData.liftGoal = k === i ? 0.5 : 0; });
   labels.forEach((el, k) => { el.classList.toggle('dim', k !== i); el.classList.toggle('active', k === i); });
   spots.forEach((s) => s.label.classList.add('dim'));
@@ -897,13 +902,15 @@ function select(i) {
 
 function selectSpot(k) {
   selected = -1;
+  selectedSpot = k;
   const s = SPOTS[k];
   cardBody.innerHTML = `
     <span class="tag" style="background:#0f766e">新北景點</span>
     <h2>${s.name}</h2>
     <p>${s.desc}</p>`;
   card.hidden = false;
-  nav.hidden = true;
+  card.scrollTop = 0;
+  setNavUnit('個');
   islands.forEach((g) => { g.userData.liftGoal = 0; });
   labels.forEach((el) => { el.classList.add('dim'); el.classList.remove('active'); });
   spots.forEach((sp, j) => sp.label.classList.toggle('dim', j !== k));
@@ -920,17 +927,21 @@ function focusOn(pos) {
 }
 
 function deselect() {
-  selected = -1;
+  selected = selectedSpot = -1;
   card.hidden = true;
-  nav.hidden = false;
   islands.forEach((g) => { g.userData.liftGoal = 0; });
   labels.forEach((el) => el.classList.remove('dim', 'active'));
   spots.forEach((s) => s.label.classList.remove('dim'));
 }
 
 document.getElementById('card-close').addEventListener('click', deselect);
-document.getElementById('prev').addEventListener('click', () => select((selected + POLICIES.length - 1) % POLICIES.length));
-document.getElementById('next').addEventListener('click', () => select((selected + 1) % POLICIES.length));
+// Prev/next cycles within whichever list the card is showing: policy islands or landmarks
+function step(dir) {
+  if (selectedSpot >= 0) selectSpot((selectedSpot + dir + SPOTS.length) % SPOTS.length);
+  else select((selected + dir + POLICIES.length) % POLICIES.length);
+}
+prevBtn.addEventListener('click', () => step(-1));
+nextBtn.addEventListener('click', () => step(1));
 document.getElementById('home').addEventListener('click', () => { deselect(); flyTo(HOME_TARGET, homeOffset()); });
 addEventListener('keydown', (e) => { if (e.key === 'Escape') deselect(); });
 
