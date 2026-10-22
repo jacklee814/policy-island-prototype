@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>政策島原型</title>
-<meta name="description" content="用 Three.js 做的 3D 政策島互動原型（假資料）">
+<title>新北政見島</title>
+<meta name="description" content="把新北市長參選人蘇巧慧的 14 項政見做成 3D 互動島嶼（非官方原型）">
 <style>
   :root {
     --bg: #f3efe6;
@@ -20,6 +20,7 @@
     background: var(--bg); color: var(--ink);
     font-family: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", sans-serif;
   }
+  a { color: inherit; }
   #stage { position: fixed; inset: 0; }
   #stage canvas { display: block; touch-action: none; }
   #labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
@@ -27,7 +28,7 @@
     position: absolute; left: 0; top: 0;
     padding: 4px 10px; border-radius: 999px;
     background: rgba(255, 253, 248, .92); border: 1px solid var(--line);
-    font-size: 13px; font-weight: 600; white-space: nowrap;
+    font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap;
     pointer-events: auto; cursor: pointer;
     box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
     transition: opacity .25s;
@@ -37,35 +38,46 @@
   .label.active { border-color: var(--accent); }
   .label.person { font-size: 12px; padding: 2px 8px; pointer-events: none; }
   .label.person i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+  .label.ghost {
+    background: none; border: none; box-shadow: none; pointer-events: none;
+    color: #9a927f; font-size: 15px; letter-spacing: .3em;
+  }
   header {
     position: fixed; top: 16px; left: 16px; right: 16px;
     display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
     pointer-events: none;
   }
   header h1 { margin: 0; font-size: 20px; }
-  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
-  header button { pointer-events: auto; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+  header button { pointer-events: auto; flex: none; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
   button {
     font: inherit; color: var(--ink); background: var(--card);
     border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; cursor: pointer;
   }
   button:hover { border-color: var(--accent); }
   #card {
-    position: fixed; right: 16px; top: 84px; width: 340px; max-height: calc(100% - 100px);
+    position: fixed; right: 16px; top: 84px; width: 360px; max-height: calc(100% - 100px);
     overflow: auto; padding: 20px;
     background: var(--card); border: 1px solid var(--line); border-radius: 16px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, .12);
   }
   #card[hidden] { display: none; }
   #card .tag { display: inline-block; font-size: 12px; color: #fff; border-radius: 999px; padding: 2px 10px; }
-  #card h2 { margin: 10px 0 6px; font-size: 22px; }
+  #card h2 { margin: 10px 32px 6px 0; font-size: 21px; line-height: 1.35; }
   #card p { color: var(--muted); line-height: 1.6; margin: 0 0 12px; }
-  #card ul { padding-left: 18px; margin: 0 0 16px; line-height: 1.8; }
+  #card ul { padding-left: 18px; margin: 0 0 12px; line-height: 1.7; }
+  #card li + li { margin-top: 4px; }
+  #card .source { display: inline-block; margin-bottom: 16px; color: var(--accent); font-size: 14px; font-weight: 600; }
   #card .close { position: absolute; top: 8px; right: 8px; border: none; background: none; font-size: 22px; padding: 4px 10px; }
   #card .nav { display: flex; justify-content: space-between; gap: 8px; }
   footer { position: fixed; left: 16px; bottom: 12px; font-size: 12px; color: var(--muted); }
   @media (max-width: 640px) {
-    #card { left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; max-height: 48%; }
+    header h1 { font-size: 18px; }
+    header p { font-size: 12px; }
+    .legend { display: none; }
+    #card { left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; max-height: 52%; }
     .label { font-size: 11px; padding: 3px 8px; }
     footer { display: none; }
   }
@@ -80,12 +92,13 @@
 </script>
 </head>
 <body>
-<div id="stage" role="img" aria-label="14 個六邊形島嶼組成的 3D 政策城市，點選島嶼可查看內容"></div>
+<div id="stage" role="img" aria-label="14 座六邊形島嶼環繞台北市，組成新北市的 3D 政見地圖，點選島嶼可查看政見內容"></div>
 <div id="labels"></div>
 <header>
   <div>
-    <h1>政策島原型</h1>
-    <p>點一座島，看它的政策內容 · 拖曳旋轉、滾輪縮放</p>
+    <h1>新北政見島</h1>
+    <p>整理自蘇巧慧 2026 新北市長競選網站的 14 項政見 · 非官方作品</p>
+    <div class="legend" id="legend"></div>
   </div>
   <button id="home" type="button">全景</button>
 </header>
@@ -97,44 +110,96 @@
     <button id="next" type="button">下一座 →</button>
   </div>
 </article>
-<footer>原型 Demo · 內容皆為假資料，不代表任何真實政見</footer>
+<footer>非官方原型 · 內容摘錄自 <a href="https://chiao.tw/policies" target="_blank" rel="noopener">chiao.tw/policies</a>（2026-10-22），以官方網站為準</footer>
 
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
-// ---------- Fake data ----------
+// ---------- Policy data (excerpted from https://chiao.tw/policies, 2026-10-22) ----------
 const GROUPS = {
-  mobility: { name: '交通', color: '#3f7fd0' },
-  living: { name: '居住', color: '#e0663d' },
-  care: { name: '照顧', color: '#d9a21b' },
-  green: { name: '綠能', color: '#3a9b6a' },
-  civic: { name: '公共', color: '#7b5cc4' },
+  care: { name: '照顧', color: '#e0663d' },
+  tourism: { name: '觀光', color: '#3f7fd0' },
+  work: { name: '產業與勞動', color: '#d9a21b' },
+  city: { name: '城市與居住', color: '#7b5cc4' },
+  culture: { name: '教育與文化', color: '#3a9b6a' },
 };
 
+// cell = axial hex coordinate; the 12-cell ring at distance 2 surrounds Taipei, laid out roughly by New Taipei geography
 const POLICIES = [
-  { name: '公車路網重整', group: 'mobility', type: 'transit', summary: '以幹線加支線重新規劃路網，縮短轉乘等候時間。', items: ['尖峰班距 8 分鐘以內', '轉乘 30 分鐘內免費', '即時到站資訊全面上線'] },
-  { name: '社會住宅', group: 'living', type: 'towers', summary: '在捷運站周邊興建只租不售的社會住宅。', items: ['四年新增 5,000 戶', '租金為市價六至八成', '保留三成給青年與新婚家庭'] },
-  { name: '口袋公園', group: 'green', type: 'park', summary: '把閒置畸零地改造成步行五分鐘可達的小公園。', items: ['每個行政區至少 10 處', '社區參與式設計', '夜間照明與無障礙步道'] },
-  { name: '公共托育', group: 'care', type: 'house', roof: '#f2a65a', summary: '擴大平價公共托育，讓家長安心工作。', items: ['新增 60 處托育據點', '延長收托至晚上 8 點', '托育人員薪資補助'] },
-  { name: '社區長照站', group: 'care', type: 'clinic', summary: '以里為單位設置長照據點，讓長輩在熟悉的社區老化。', items: ['每 3 個里一處據點', '日間照顧與共餐', '居家醫療巡迴'] },
-  { name: '屋頂光電', group: 'green', type: 'solar', summary: '公有建築屋頂全面設置太陽能板。', items: ['公有屋頂設置率 80%', '收益回饋社區基金', '民間屋頂設置補助'] },
-  { name: '低碳示範區', group: 'green', type: 'wind', summary: '選定示範區導入小型風電與智慧電網。', items: ['示範區用電三成綠電', '智慧電表全面安裝', '年度減碳成果公開'] },
-  { name: '市場改建', group: 'living', type: 'market', summary: '老舊傳統市場改建，兼顧攤商權益與環境衛生。', items: ['改建期間臨時攤位安置', '冷鏈與排水設施更新', '友善行動支付'] },
-  { name: '圖書館 2.0', group: 'civic', type: 'dome', domeColor: '#b9a6e8', summary: '圖書館轉型為社區學習與創作中心。', items: ['延長開館至晚上 10 點', '數位創作工作室', '分館預約借還'] },
-  { name: '國民運動中心', group: 'civic', type: 'dome', domeColor: '#9fd0c4', summary: '補足運動中心缺口，提供平價運動空間。', items: ['新增 3 座運動中心', '長者與學生優惠時段', '夜間球場開放'] },
-  { name: '河岸再生', group: 'green', type: 'bridge', summary: '整治河岸、串連自行車道與親水空間。', items: ['水質改善監測公開', '新增 4 座人行橋', '河濱活動空間'] },
-  { name: '青年創業基地', group: 'living', type: 'towers', glass: true, summary: '提供低租金辦公空間與創業輔導。', items: ['共享辦公室 500 席', '業師一對一輔導', '首年租金減半'] },
-  { name: '自行車路網', group: 'mobility', type: 'track', summary: '建立連續、安全的自行車路網。', items: ['新增 50 公里自行車道', '路口號誌優先', '公共自行車站加密'] },
-  { name: '數位市政', group: 'civic', type: 'antenna', summary: '市政服務線上化，一個帳號辦好所有事。', items: ['九成申辦項目可線上完成', '開放資料 API', '市民數位身分整合'] },
+  {
+    short: '新皇冠海岸', title: '新北觀光政見：新皇冠計畫', slug: '新皇冠海岸計畫', group: 'tourism', type: 'coast', cell: [1, -3],
+    summary: '串連八里、淡水、三芝、石門、金山、萬里、瑞芳、貢寮八顆海岸寶石，把新北海岸打造成國際觀光品牌。',
+    items: ['漁港碼頭服務總體檢，設置漁港服務站、全齡無障礙動線', '核四重件碼頭轉型為國際級遊艇與休閒船艇泊區', '自行車道每 5 公里設簡易休息站，景點道路全面劃設人行道', '推動台 62 線延伸金山萬里、三芝輕軌、八里輕軌', '龍洞打造全年潛水基地，台北港興建退役潛艦博物館'],
+  },
+  {
+    short: '七大教育', title: '七大教育政見', slug: '七大教育政見', group: 'culture', type: 'school', cell: [0, -2],
+    summary: '做老師、學生與家長的靠山，以市府高度跨界整合資源，打開孩子的想像力。',
+    items: ['推動「全國遊學團」，讓新北山海城鄉成為孩子的教室', '全面導入「技職 AI 賦能」，升級實習工場', '補足專輔人力、強化學生輔導諮商中心，簡化行政程序', '教師節禮金調升至 2,000 元，假日出勤可選加班費或補休', '公立國中小營養午餐免費，加碼補助團膳食安設備'],
+  },
+  {
+    short: '產業升級', title: '產業升級四大支柱政見', slug: '產業升級四大支柱政見', group: 'work', type: 'factory', cell: [1, -2],
+    summary: '傳產加值、園區開發、商圈創生、AI 政府四大支柱，做新北百工百業的後盾。',
+    items: ['加速工業區立體化更新，設立「新北市工業設計聚落」', '新建新北市國際會展中心，提供產業會展補助', '整體開發泰山楓江、樹林大柑園科技園區，加速淡海科學城', '老街與特色商圈「一商圈一特色」振興計畫', '公私協力興建高效能 AI 算力中心'],
+  },
+  {
+    short: '勞工權益', title: '勞工政見', slug: '勞工政見', group: 'work', type: 'crane', cell: [2, -2],
+    summary: '新北有超過 216 萬位勞工，要照顧勞工、照顧職業工會，也照顧每一個勞工家庭。',
+    items: ['調升職災慰問金、勞資爭議涉訟補助金', '退休煤礦工慰問金從每年 2,000 元提高為 6,000 元', '擴大多元職訓，支持中高齡再就業', '改善工會辦公空間，調高職業工會行政事務費', '建立市府與工會對話機制'],
+  },
+  {
+    short: '牙齒口腔', title: '牙齒口腔保健政見', slug: '牙齒口腔保健政見', group: 'care', type: 'tooth', cell: [2, -1],
+    summary: '整合醫療網絡，從兒童防蛀到長輩假牙，守護全體市民的口腔健康。',
+    items: ['0–6 歲孩童看醫生免門診和住院部分負擔', '免費塗氟從 6 歲延伸到 12 歲', '65 歲以上長輩裝假牙最高補助 5 萬元', '市府投入資源獎勵居家牙醫服務', '嚴格稽查無照牙技師與非法牙材'],
+  },
+  {
+    short: '毛孩照顧', title: '三大照顧寵物政見', slug: '三大照顧寵物政見', group: 'care', type: 'pets', cell: [2, 0],
+    summary: '照顧毛小孩、做獸醫師後盾，也要升級動物之家、提升認養率。',
+    items: ['擴大疫苗與健檢補助，認養毛孩享終身全額補助', '補貼夜間開診動物醫院，擴大實施寵物長照', '推動友善寵物專車／計程車標章與補貼', '增設寵物公園並強化遮陰防熱設施', '提升動物之家預算，導入行為訓練等專業服務'],
+  },
+  {
+    short: '三大長照', title: '三大長照政見', slug: '三大長照政見', group: 'care', type: 'clinic', cell: [1, 1],
+    summary: '新北 65 歲以上人口突破 82 萬、全台之冠。「照顧他人的人，也需要被照顧」。',
+    items: ['與機構和專業人員一同推動行政減負', '出院後居家服務與輔具一次到位，「先用後審、公辦借調」', '配合長照 3.0 加強醫療與長照銜接，帶入專業復能服務', '發展 AI 智慧照顧，建立以租代買機制降低導入門檻'],
+  },
+  {
+    short: '鑽石山城', title: '新北觀光政見：鑽石山城計畫', slug: '鑽石山城計畫', group: 'tourism', type: 'mountain', cell: [1, 2],
+    summary: '以步道、鐵道、礦業、茶文化與老街五顆鑽石，串連瑞芳、平溪、雙溪、深坑、石碇、坪林與烏來。',
+    items: ['縫合五大山系與海岸線步道，建構「新北大縱走」', '推廣「淡蘭土地公」朝聖文化，開發專屬御朱印帳', '與台鐵合作開發觀光列車，打造特色車站', '推動金九台車復駛，重現百年礦業遺產'],
+  },
+  {
+    short: '原住民族', title: '三大原住民族政見', slug: '三大原住民族政見', group: 'culture', type: 'tribe', cell: [0, 2],
+    summary: '新北原住民族人口六都第二。推動預算翻轉計畫，人均預算加倍，並確保「只增不減」。',
+    items: ['原住民族租金補貼，持續興建部落聚會所', '55 歲以上族人假牙補助最高 5 萬元', '建置烏來公共托育中心', '提高原住民族社團補助，擴大返鄉祭儀交通費補助', '成立新北市原住民族青年團，新增頭目文化傳承事務費'],
+  },
+  {
+    short: '四大客家', title: '四大客家政見', slug: '四大客家政見', group: 'culture', type: 'hakka', cell: [-1, 2],
+    summary: '照顧客家長輩、支持客家青年，結合新科技讓客家文化融入日常。',
+    items: ['客語及技藝課程推廣到校園與社區', '盤點低利用公有空間，增加客家青年新創孵育基地', '建立客家文化 AI 資料庫與 AI 客語教學平台', '放寬設置伯公照護站，照顧都會客家長輩', '擴大客家幣使用範圍'],
+  },
+  {
+    short: '家庭照顧', title: '三大家庭照顧政見', slug: '三大家庭照顧政見', group: 'care', type: 'nursery', cell: [-2, 2],
+    summary: '力挺照顧者、育兒全方位、貼心顧長輩，做所有家庭的神隊友。',
+    items: ['加發職業照顧者夜間、緊急及困難照顧津貼', '獎勵友善家庭企業最高 100 萬', '企業組隊設置托育首三年虧損補助 50%，開辦夜托、擴大臨托', '打造「95 公分視角」的友善城市', '擴大補助獨居老人智慧救援裝置與失智症 AI 篩檢'],
+  },
+  {
+    short: '長幼福利', title: '六大長幼福利政見', slug: '六大長幼福利政見', group: 'care', type: 'house', roof: '#f2a65a', cell: [-2, 1],
+    summary: '減輕育兒家庭的支出負擔，鼓勵長輩多出門走走，市府做家庭的後盾。',
+    items: ['公立國中小學童營養午餐全面免費、提升品質', '0–6 歲孩童看醫生免門診和住院部分負擔', '6 歲以下免費接種腸病毒、輪狀病毒疫苗', '早產兒家庭照顧津貼 3 萬元', '65 歲以上裝假牙最高補助 5 萬元', '敬老卡提高到每月 1,000 點，效期改年度計算'],
+  },
+  {
+    short: '都更住宅', title: '都更與住宅政見', slug: '都更與住宅政見', group: 'city', type: 'towers', cell: [-2, 0],
+    summary: '以公共運輸為中心翻新街廓機能，同時保留地方文化與觀光特色。',
+    items: ['成立都市更新局，審議進度透明可查詢', '以捷運、鐵路、輕軌與轉運站為中心更新街廓機能', '配合歷史建築或觀光老街，營造特色街景', '推動青年育兒宅，最長租期可達 20 年', '補助包租代管優先租給長者，推動學生包租代管'],
+  },
+  {
+    short: '青年支持', title: '四大青年支持政見', slug: '四大青年支持政見', group: 'work', type: 'towers', glass: true, cell: [-1, -1],
+    summary: '從知識、資金、空間到身心，讓每位新北青年都能在城市角落實踐理想。',
+    items: ['微型創業一條龍加速器、職涯導師制', '青農創業貸款免息額度提高（一般青農 200 萬→500 萬）', '技術士證照獎勵金翻倍', '活化閒置空間為青創基地，定期舉辦青年黑客松', '心理健康「3+3」，新北加碼 3 次免費心理諮商'],
+  },
 ];
-
-// Axial hex coordinates for 14 cells forming an irregular blob
-const CELLS = [
-  [0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1],
-  [2, -1], [2, -2], [-2, 1], [-1, 2], [0, 2], [1, -2], [-2, 2],
-];
+const policyUrl = (p) => `https://chiao.tw/policies/${encodeURIComponent(p.slug)}`;
 
 // ---------- Renderer / scene ----------
 const stage = document.getElementById('stage');
@@ -148,13 +213,13 @@ stage.appendChild(renderer.domElement);
 const BG = new THREE.Color('#f3efe6');
 const scene = new THREE.Scene();
 scene.background = BG;
-scene.fog = new THREE.Fog(BG, 45, 95);
+scene.fog = new THREE.Fog(BG, 50, 105);
 
 const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 200);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.minDistance = 6;
-controls.maxDistance = 60;
+controls.maxDistance = 70;
 controls.maxPolarAngle = Math.PI * 0.44;
 
 scene.add(new THREE.HemisphereLight('#fff7ea', '#b9c7c4', 1.6));
@@ -162,12 +227,12 @@ const sun = new THREE.DirectionalLight('#ffffff', 2.4);
 sun.position.set(14, 24, 10);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 70 });
+Object.assign(sun.shadow.camera, { left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 75 });
 sun.shadow.bias = -0.0005;
 scene.add(sun);
 
 const sea = new THREE.Mesh(
-  new THREE.CircleGeometry(80, 64),
+  new THREE.CircleGeometry(90, 64),
   new THREE.MeshStandardMaterial({ color: '#d6e6e2', roughness: 1 }),
 );
 sea.rotation.x = -Math.PI / 2;
@@ -193,9 +258,9 @@ const shade = (hex, amt) => '#' + new THREE.Color(hex).lerp(new THREE.Color(amt 
 
 const animators = [];
 
-function tree(g, x, z, s = 1) {
+function tree(g, x, z, s = 1, crown = '#4f9a5f') {
   g.add(mesh(new THREE.CylinderGeometry(0.06 * s, 0.08 * s, 0.4 * s, 6), '#8a6a4a', x, 0.2 * s, z));
-  g.add(mesh(new THREE.ConeGeometry(0.35 * s, 0.9 * s, 7), '#4f9a5f', x, 0.75 * s, z));
+  g.add(mesh(new THREE.ConeGeometry(0.35 * s, 0.9 * s, 7), crown, x, 0.75 * s, z));
 }
 
 function house(g, x, z, wall, roof, s = 1) {
@@ -206,17 +271,181 @@ function house(g, x, z, wall, roof, s = 1) {
 }
 
 const BUILDERS = {
-  transit(g, p, c) {
-    g.add(mesh(new THREE.BoxGeometry(3.4, 0.04, 0.9), '#6b7280', 0, 0.02, 0));
-    const bus = new THREE.Group();
-    bus.add(mesh(rbox(1.3, 0.5, 0.55, 0.12), c, 0, 0.32, 0));
-    bus.add(mesh(new THREE.BoxGeometry(1.1, 0.16, 0.57), '#dbeafe', 0, 0.42, 0));
-    g.add(bus);
-    const phase = Math.random() * 6;
-    animators.push((t) => { bus.position.x = Math.sin(t * 0.6 + phase) * 0.9; });
-    g.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8, 6), '#4b5563', 1.2, 0.4, 0.75));
-    g.add(mesh(new THREE.BoxGeometry(0.5, 0.06, 0.3), c, 1.2, 0.82, 0.75));
-    tree(g, -1, -1, 0.8); tree(g, 0.4, -1.1, 0.7);
+  coast(g, p, c) {
+    // Half of the island is sea, aligned to the hex corners
+    g.add(mesh(new THREE.CylinderGeometry(R * 0.97, R * 0.97, 0.04, 3, 1, false, (2 * Math.PI) / 3, Math.PI), '#6fb3d6', 0, 0.02, 0));
+    g.add(mesh(new THREE.CylinderGeometry(0.16, 0.24, 1.3, 12), '#ffffff', 0.5, 0.65, 0.9));
+    g.add(mesh(new THREE.CylinderGeometry(0.2, 0.22, 0.2, 12), '#e5484d', 0.5, 0.75, 0.9));
+    const light = mesh(new THREE.SphereGeometry(0.13, 12, 8), '#ffd166', 0.5, 1.4, 0.9, { emissive: '#ffb703', emissiveIntensity: 0.8 });
+    g.add(light);
+    animators.push((t) => { light.material.emissiveIntensity = 0.5 + Math.sin(t * 2.5) * 0.4; });
+    const boat = new THREE.Group();
+    boat.add(mesh(rbox(0.7, 0.16, 0.28, 0.06), c, 0, 0.1, 0));
+    boat.add(mesh(new THREE.ConeGeometry(0.2, 0.55, 3), '#ffffff', 0.05, 0.45, 0));
+    boat.position.set(-0.7, 0, -0.9);
+    g.add(boat);
+    animators.push((t) => { boat.position.y = Math.sin(t * 1.5) * 0.04; boat.rotation.z = Math.sin(t * 1.2) * 0.06; });
+    const sub = mesh(new THREE.CapsuleGeometry(0.15, 0.6, 4, 10), '#4b5563', 1.2, 0.18, 0.1);
+    sub.rotation.z = Math.PI / 2;
+    g.add(sub);
+    tree(g, -0.4, 1.3, 0.6);
+  },
+  school(g, p, c) {
+    g.add(mesh(rbox(1.8, 0.8, 0.8, 0.05), '#f5e6c8', 0, 0.4, -0.5));
+    g.add(mesh(new THREE.BoxGeometry(1.9, 0.1, 0.9), c, 0, 0.85, -0.5));
+    const clock = mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.03, 20), '#ffffff', 0, 0.55, -0.09);
+    clock.rotation.x = Math.PI / 2;
+    g.add(clock);
+    g.add(mesh(new THREE.BoxGeometry(1.6, 0.03, 0.8), '#d98c5f', -0.2, 0.02, 0.7));
+    g.add(mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.4, 6), '#9ca3af', 1.1, 0.7, 0.6));
+    const flag = mesh(new THREE.BoxGeometry(0.4, 0.25, 0.02), c, 1.3, 1.25, 0.6);
+    g.add(flag);
+    animators.push((t) => { flag.rotation.y = Math.sin(t * 3) * 0.25; });
+  },
+  factory(g, p, c) {
+    g.add(mesh(rbox(1.6, 0.7, 1, 0.04), '#e5e7eb', -0.2, 0.35, -0.2));
+    for (let i = 0; i < 3; i++) {
+      const tooth = mesh(new THREE.BoxGeometry(0.58, 0.06, 1), c, -0.73 + i * 0.53, 0.86, -0.2);
+      tooth.rotation.z = 0.55;
+      g.add(tooth);
+    }
+    g.add(mesh(new THREE.CylinderGeometry(0.1, 0.14, 1.5, 10), '#9ca3af', 0.9, 0.75, -0.6));
+    const puffs = [0, 1, 2].map(() => {
+      const s = mesh(new THREE.SphereGeometry(0.14, 10, 8), '#ffffff', 0.9, 1.6, -0.6, { transparent: true, opacity: 0.75 });
+      s.castShadow = false;
+      g.add(s);
+      return s;
+    });
+    animators.push((t) => puffs.forEach((s, k) => {
+      const u = (t * 0.35 + k / 3) % 1;
+      s.position.set(0.9 + u * 0.3, 1.55 + u * 0.9, -0.6);
+      s.scale.setScalar(0.6 + u);
+    }));
+    g.add(mesh(rbox(0.6, 0.5, 0.5, 0.05), '#7fb2e5', 0.8, 0.25, 0.7, { metalness: 0.2, roughness: 0.3 }));
+  },
+  crane(g, p, c) {
+    g.add(mesh(new THREE.BoxGeometry(0.4, 0.15, 0.4), '#6b7280', -0.6, 0.075, -0.4));
+    g.add(mesh(new THREE.BoxGeometry(0.12, 1.8, 0.12), c, -0.6, 1, -0.4));
+    const jib = new THREE.Group();
+    jib.position.set(-0.6, 1.9, -0.4);
+    jib.add(mesh(new THREE.BoxGeometry(1.8, 0.1, 0.1), c, 0.5, 0, 0));
+    jib.add(mesh(new THREE.BoxGeometry(0.3, 0.2, 0.2), '#4b5563', -0.45, 0, 0));
+    jib.add(mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.9, 4), '#374151', 1.2, -0.45, 0));
+    jib.add(mesh(new THREE.BoxGeometry(0.25, 0.18, 0.25), '#c2410c', 1.2, -0.95, 0));
+    g.add(jib);
+    animators.push((t) => { jib.rotation.y = Math.sin(t * 0.4) * 1.2; });
+    // Building under construction: floors with posts
+    [0, 1].forEach((f) => {
+      g.add(mesh(new THREE.BoxGeometry(1, 0.06, 0.8), '#d1d5db', 0.6, 0.03 + f * 0.45, 0.5));
+      [[-0.45, -0.35], [0.45, -0.35], [-0.45, 0.35], [0.45, 0.35]].forEach(([x, z]) => g.add(mesh(new THREE.BoxGeometry(0.06, 0.45, 0.06), '#9ca3af', 0.6 + x, 0.25 + f * 0.45, 0.5 + z)));
+    });
+  },
+  tooth(g, p, c) {
+    g.add(mesh(new THREE.CylinderGeometry(0.6, 0.65, 0.2, 20), c, -0.3, 0.1, -0.1));
+    const roots = [-0.5, -0.1].map((x) => {
+      const r = mesh(new THREE.ConeGeometry(0.17, 0.6, 10), '#ffffff', x, 0.5, -0.1);
+      r.rotation.x = Math.PI;
+      return r;
+    });
+    roots.forEach((r) => g.add(r));
+    const crown = mesh(rbox(0.9, 0.7, 0.75, 0.22), '#ffffff', -0.3, 1.1, -0.1);
+    g.add(crown);
+    const sparkle = mesh(new THREE.OctahedronGeometry(0.08), '#ffd166', 0.3, 1.6, -0.1, { emissive: '#ffd166', emissiveIntensity: 0.6 });
+    g.add(sparkle);
+    animators.push((t) => { sparkle.rotation.y = t * 2; sparkle.scale.setScalar(0.8 + Math.sin(t * 4) * 0.3); });
+    house(g, 0.9, 0.7, '#ffffff', c, 0.6);
+    tree(g, -1, 0.9, 0.6);
+  },
+  pets(g, p, c) {
+    g.add(mesh(rbox(0.6, 0.45, 0.6, 0.04), '#c0814f', -0.8, 0.225, -0.5));
+    const roof = mesh(new THREE.ConeGeometry(0.5, 0.35, 4), c, -0.8, 0.62, -0.5);
+    roof.rotation.y = Math.PI / 4;
+    g.add(roof);
+    g.add(mesh(new THREE.CylinderGeometry(0.75, 0.75, 0.03, 24), '#a8d5a2', 0.3, 0.02, 0.3));
+    const dog = (color) => {
+      const d = new THREE.Group();
+      d.add(mesh(rbox(0.18, 0.16, 0.36, 0.06), color, 0, 0.18, 0));
+      d.add(mesh(new THREE.SphereGeometry(0.11, 12, 8), color, 0, 0.3, -0.2));
+      d.add(mesh(new THREE.SphereGeometry(0.03, 6, 4), '#1f2328', 0, 0.29, -0.31));
+      d.add(mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.15, 5), color, 0, 0.3, 0.2));
+      return d;
+    };
+    // Dogs run in circles around the lawn; the head points along -z, which is the tangent of a +y rotation
+    [['#d9a066', 0.6, 0], ['#f5f5f0', 0.35, Math.PI]].forEach(([color, r, phase]) => {
+      const pivot = new THREE.Group();
+      pivot.position.set(0.3, 0, 0.3);
+      const d = dog(color);
+      d.position.x = r;
+      pivot.add(d);
+      g.add(pivot);
+      animators.push((t) => { pivot.rotation.y = t * 0.9 + phase; });
+    });
+    tree(g, 1.2, -0.7, 0.7); tree(g, -1.1, 0.8, 0.6);
+  },
+  clinic(g, p, c) {
+    house(g, 0, -0.1, '#ffffff', c, 1.2);
+    g.add(mesh(new THREE.BoxGeometry(0.36, 0.1, 0.02), '#e5484d', 0, 0.55, 0.39));
+    g.add(mesh(new THREE.BoxGeometry(0.1, 0.36, 0.02), '#e5484d', 0, 0.55, 0.39));
+    tree(g, -1.1, 0.4, 0.7); tree(g, 1.1, 0.6, 0.7); tree(g, 0.9, -1, 0.6);
+  },
+  mountain(g, p, c) {
+    g.add(mesh(new THREE.ConeGeometry(0.9, 1.6, 6), '#6aa36f', -0.4, 0.8, -0.5));
+    g.add(mesh(new THREE.ConeGeometry(0.7, 1.15, 6), '#7fb37f', 0.6, 0.575, -0.6));
+    const gem = mesh(new THREE.OctahedronGeometry(0.22), c, -0.4, 2.0, -0.5, { emissive: c, emissiveIntensity: 0.35, metalness: 0.3, roughness: 0.2 });
+    g.add(gem);
+    animators.push((t) => { gem.rotation.y = t * 1.2; gem.position.y = 2.0 + Math.sin(t * 1.5) * 0.08; });
+    g.add(mesh(new THREE.BoxGeometry(3, 0.04, 0.16), '#6b7280', 0, 0.02, 0.85));
+    const train = new THREE.Group();
+    train.add(mesh(rbox(0.5, 0.26, 0.24, 0.05), '#d94f3d', 0, 0.17, 0));
+    train.add(mesh(rbox(0.5, 0.26, 0.24, 0.05), '#f2a03d', -0.56, 0.17, 0));
+    train.position.z = 0.85;
+    g.add(train);
+    animators.push((t) => { train.position.x = Math.sin(t * 0.5) * 0.8 + 0.3; });
+    // Tea bushes
+    for (let i = 0; i < 4; i++) {
+      const b = mesh(new THREE.SphereGeometry(0.17, 10, 6), '#4d8f4f', 0.6 + (i % 2) * 0.4, 0.08, 0.15 + Math.floor(i / 2) * 0.3);
+      b.scale.y = 0.6;
+      g.add(b);
+    }
+  },
+  tribe(g, p, c) {
+    g.add(mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.5, 10), '#a07850', -0.3, 0.25, -0.3));
+    g.add(mesh(new THREE.ConeGeometry(0.85, 0.7, 10), '#c9a45c', -0.3, 0.85, -0.3));
+    g.add(mesh(new THREE.BoxGeometry(0.25, 0.32, 0.05), '#5b3b22', -0.3, 0.16, 0.29));
+    // Millet field
+    for (let i = 0; i < 9; i++) {
+      g.add(mesh(new THREE.ConeGeometry(0.06, 0.32, 5), '#e0b04a', 0.6 + (i % 3) * 0.25, 0.16, 0.3 + Math.floor(i / 3) * 0.25));
+    }
+    tree(g, 1.1, -0.8, 0.8); tree(g, -1.2, 0.8, 0.7);
+  },
+  hakka(g, p, c) {
+    // Bogong shrine
+    g.add(mesh(new THREE.BoxGeometry(0.2, 0.15, 0.2), '#d1d5db', -0.6, 0.075, -0.3));
+    g.add(mesh(rbox(0.55, 0.45, 0.45, 0.03), '#c2412d', -0.6, 0.375, -0.3));
+    const roof = mesh(new THREE.ConeGeometry(0.5, 0.3, 4), '#7a2e22', -0.6, 0.75, -0.3);
+    roof.rotation.y = Math.PI / 4;
+    g.add(roof);
+    // Tung trees in blossom
+    [[0.6, -0.7], [1.0, 0.4], [-0.9, 0.8]].forEach(([x, z]) => {
+      g.add(mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.5, 6), '#8a6a4a', x, 0.25, z));
+      g.add(mesh(new THREE.IcosahedronGeometry(0.38, 1), '#f7f5ee', x, 0.75, z));
+    });
+    g.add(mesh(rbox(0.6, 0.55, 0.5, 0.05), '#7fb2e5', 0.1, 0.275, 0.7, { metalness: 0.2, roughness: 0.3 }));
+  },
+  nursery(g, p, c) {
+    g.add(mesh(rbox(1.5, 0.75, 0.9, 0.06), '#fff4e3', -0.2, 0.375, -0.5));
+    g.add(mesh(new THREE.BoxGeometry(1.6, 0.1, 1), c, -0.2, 0.8, -0.5));
+    ['#e5484d', '#f2a03d', '#3f7fd0'].forEach((color, k) => {
+      g.add(mesh(new THREE.TorusGeometry(0.55 - k * 0.1, 0.05, 6, 24, Math.PI), color, 0.6, 0, 0.75));
+    });
+    g.add(mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.04, 20), '#f6d27a', -0.8, 0.02, 0.8));
+    ['#e5484d', '#3f7fd0', '#3a9b6a'].forEach((color, k) => g.add(mesh(new THREE.SphereGeometry(0.08, 10, 8), color, -0.9 + k * 0.12, 0.1, 0.75 + (k % 2) * 0.1)));
+  },
+  house(g, p, c) {
+    house(g, -0.4, -0.2, '#fff4e3', p.roof || c);
+    house(g, 0.7, 0.5, '#fff4e3', p.roof || c, 0.7);
+    g.add(mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.04, 20), '#f6d27a', 0.6, 0.02, -0.8));
+    tree(g, -1.1, 0.8, 0.7);
   },
   towers(g, p, c) {
     const base = p.glass ? '#9cc3e6' : shade(c, 0.45);
@@ -225,103 +454,26 @@ const BUILDERS = {
     });
     tree(g, 1.1, 0.6, 0.6); tree(g, -1.2, 0.8, 0.7);
   },
-  park(g) {
-    g.add(mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.04, 24), '#8ec5d6', 0.3, 0.02, 0.2));
-    [[-0.9, -0.6], [-0.4, -1.1], [0.9, -0.8], [-1.1, 0.5], [0.9, 1], [-0.3, 1.1]].forEach(([x, z], i) => tree(g, x, z, 0.8 + (i % 3) * 0.15));
-  },
-  house(g, p, c) {
-    house(g, -0.4, -0.2, '#fff4e3', p.roof || c);
-    house(g, 0.7, 0.5, '#fff4e3', p.roof || c, 0.7);
-    g.add(mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.04, 20), '#f6d27a', 0.6, 0.02, -0.8));
-    tree(g, -1.1, 0.8, 0.7);
-  },
-  clinic(g, p, c) {
-    house(g, 0, -0.1, '#ffffff', c, 1.2);
-    g.add(mesh(new THREE.BoxGeometry(0.36, 0.1, 0.02), '#e5484d', 0, 0.55, 0.39));
-    g.add(mesh(new THREE.BoxGeometry(0.1, 0.36, 0.02), '#e5484d', 0, 0.55, 0.39));
-    tree(g, -1.1, 0.4, 0.7); tree(g, 1.1, 0.6, 0.7); tree(g, 0.9, -1, 0.6);
-  },
-  solar(g) {
-    for (let i = 0; i < 6; i++) {
-      const x = (i % 3 - 1) * 0.9, z = Math.floor(i / 3) * 0.9 - 0.45;
-      g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 6), '#9ca3af', x, 0.15, z));
-      const panel = mesh(new THREE.BoxGeometry(0.75, 0.04, 0.5), '#24407a', x, 0.35, z, { metalness: 0.4, roughness: 0.3 });
-      panel.rotation.x = -0.5;
-      g.add(panel);
-    }
-  },
-  wind(g) {
-    [[-0.5, -0.2, 1], [0.7, 0.5, 0.8]].forEach(([x, z, s]) => {
-      g.add(mesh(new THREE.CylinderGeometry(0.05 * s, 0.09 * s, 2.4 * s, 8), '#f8fafc', x, 1.2 * s, z));
-      const rotor = new THREE.Group();
-      rotor.position.set(x, 2.4 * s, z + 0.1);
-      rotor.add(mesh(new THREE.SphereGeometry(0.1 * s, 12, 8), '#f8fafc'));
-      for (let k = 0; k < 3; k++) {
-        const blade = mesh(new THREE.BoxGeometry(0.08 * s, 0.9 * s, 0.03), '#f8fafc', 0, 0, 0);
-        blade.geometry.translate(0, 0.45 * s, 0);
-        blade.rotation.z = (k * Math.PI * 2) / 3;
-        rotor.add(blade);
-      }
-      g.add(rotor);
-      animators.push((t, dt) => { rotor.rotation.z -= dt * 1.6; });
-    });
-    tree(g, 0.9, -0.9, 0.6);
-  },
-  market(g, p, c) {
-    const colors = [c, '#3f7fd0', '#3a9b6a', '#d9a21b'];
-    [[-0.7, -0.6], [0.5, -0.6], [-0.7, 0.6], [0.5, 0.6]].forEach(([x, z], i) => {
-      g.add(mesh(rbox(0.8, 0.4, 0.6, 0.04), '#fff4e3', x, 0.2, z));
-      const awning = mesh(new THREE.BoxGeometry(0.95, 0.05, 0.75), colors[i], x, 0.55, z);
-      awning.rotation.x = 0.25;
-      g.add(awning);
-    });
-  },
-  dome(g, p, c) {
-    g.add(mesh(new THREE.CylinderGeometry(1.1, 1.15, 0.5, 24), '#fff4e3', 0, 0.25, 0));
-    g.add(mesh(new THREE.SphereGeometry(1.05, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), p.domeColor || c, 0, 0.5, 0));
-    g.add(mesh(new THREE.BoxGeometry(0.4, 0.4, 0.1), shade(c, -0.2), 0, 0.2, 1.12));
-  },
-  bridge(g) {
-    g.add(mesh(new THREE.BoxGeometry(3.6, 0.03, 1), '#7cc0d8', 0, 0.02, 0));
-    const arch = mesh(new THREE.TorusGeometry(0.8, 0.07, 8, 24, Math.PI), '#e5e7eb', 0, 0, 0);
-    arch.rotation.y = Math.PI / 2;
-    g.add(arch);
-    g.add(mesh(new THREE.BoxGeometry(0.4, 0.06, 1.8), '#cbd5e1', 0, 0.82, 0));
-    [[-1.1, -1], [1.1, -1], [-1.1, 1], [1.1, 1]].forEach(([x, z]) => tree(g, x, z, 0.65));
-  },
-  track(g, p, c) {
-    const ring = mesh(new THREE.TorusGeometry(1.1, 0.12, 6, 40), '#6b7280', 0, 0.03, 0);
-    ring.rotation.x = Math.PI / 2;
-    ring.scale.set(1, 0.75, 0.3);
-    g.add(ring);
-    tree(g, 0, 0, 0.8);
-    const riders = [0, 2.1, 4.2].map(() => {
-      const r = mesh(new THREE.SphereGeometry(0.12, 10, 8), c, 0, 0.18, 0);
-      g.add(r);
-      return r;
-    });
-    animators.push((t) => riders.forEach((r, i) => {
-      const a = t * 0.7 + i * 2.1;
-      r.position.set(Math.cos(a) * 1.1, 0.18, Math.sin(a) * 0.82);
-    }));
-  },
-  antenna(g, p, c) {
-    g.add(mesh(rbox(1, 1.4, 1), '#e5e7eb', -0.3, 0.7, 0));
-    g.add(mesh(new THREE.CylinderGeometry(0.03, 0.05, 1.2, 6), '#9ca3af', -0.3, 2, 0));
-    const beacon = mesh(new THREE.SphereGeometry(0.14, 12, 8), c, -0.3, 2.65, 0, { emissive: c, emissiveIntensity: 0.6 });
-    g.add(beacon);
-    animators.push((t) => { beacon.material.emissiveIntensity = 0.4 + Math.sin(t * 3) * 0.4; });
-    house(g, 0.9, 0.6, '#fff4e3', c, 0.6);
-  },
 };
 
 // ---------- Islands ----------
 const R = 2.2, H = 0.7, GAP = 1.06;
+const hexToWorld = (q, r) => [R * GAP * Math.sqrt(3) * (q + r / 2), R * GAP * 1.5 * r];
+
+// Taipei: a flat, non-interactive plateau in the middle of the ring
+[[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]].forEach(([q, r]) => {
+  const [x, z] = hexToWorld(q, r);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.12, 6), mat('#e4ded2'));
+  m.position.set(x, -0.25, z);
+  m.receiveShadow = true;
+  scene.add(m);
+});
+
 const islands = POLICIES.map((p, i) => {
-  const [q, r] = CELLS[i];
   const color = GROUPS[p.group].color;
   const g = new THREE.Group();
-  g.position.set(R * GAP * Math.sqrt(3) * (q + r / 2), 0, R * GAP * 1.5 * r);
+  const [x, z] = hexToWorld(...p.cell);
+  g.position.set(x, 0, z);
   g.userData = { index: i, lift: 0, liftGoal: 0 };
 
   const base = new THREE.Mesh(
@@ -342,27 +494,39 @@ const islands = POLICIES.map((p, i) => {
 
 // ---------- Labels ----------
 const labelsEl = document.getElementById('labels');
+const tmp = new THREE.Vector3();
+function placeLabel(el, pos) {
+  tmp.copy(pos).project(camera);
+  if (tmp.z > 1) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  const x = (tmp.x * 0.5 + 0.5) * innerWidth, y = (-tmp.y * 0.5 + 0.5) * innerHeight;
+  el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+  el.style.zIndex = String(Math.round((1 - tmp.z) * 10000));
+}
+
 const labels = POLICIES.map((p, i) => {
   const el = document.createElement('button');
   el.type = 'button';
   el.className = 'label';
-  el.innerHTML = `<span class="n">${String(i + 1).padStart(2, '0')}</span>${p.name}`;
+  el.innerHTML = `<span class="n">${String(i + 1).padStart(2, '0')}</span>${p.short}`;
   el.addEventListener('click', () => select(i));
   labelsEl.appendChild(el);
   return el;
 });
-const tmp = new THREE.Vector3();
+const taipeiLabel = document.createElement('div');
+taipeiLabel.className = 'label ghost';
+taipeiLabel.textContent = '台北市';
+labelsEl.appendChild(taipeiLabel);
+const TAIPEI_POS = new THREE.Vector3(0, 0.3, 0.6);
+
+const labelPos = new THREE.Vector3();
 function updateLabels() {
-  islands.forEach((g, i) => {
-    tmp.set(g.position.x, g.position.y + 2.2, g.position.z).project(camera);
-    const el = labels[i];
-    if (tmp.z > 1) { el.style.display = 'none'; return; }
-    el.style.display = '';
-    const x = (tmp.x * 0.5 + 0.5) * innerWidth, y = (-tmp.y * 0.5 + 0.5) * innerHeight;
-    el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
-    el.style.zIndex = String(Math.round((1 - tmp.z) * 10000));
-  });
+  islands.forEach((g, i) => placeLabel(labels[i], labelPos.set(g.position.x, g.position.y + 2.4, g.position.z)));
+  placeLabel(taipeiLabel, TAIPEI_POS);
 }
+
+document.getElementById('legend').innerHTML = Object.values(GROUPS)
+  .map((grp) => `<span><i style="background:${grp.color}"></i>${grp.name}</span>`).join('');
 
 // ---------- People ----------
 const PEOPLE = [
@@ -447,19 +611,12 @@ function stepPerson(w, dt) {
 }
 
 function updatePersonLabels() {
-  people.forEach((w) => {
-    tmp.copy(w.g.position).setY(w.g.position.y + 1).project(camera);
-    if (tmp.z > 1) { w.label.style.display = 'none'; return; }
-    w.label.style.display = '';
-    const x = (tmp.x * 0.5 + 0.5) * innerWidth, y = (-tmp.y * 0.5 + 0.5) * innerHeight;
-    w.label.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
-    w.label.style.zIndex = String(Math.round((1 - tmp.z) * 10000));
-  });
+  people.forEach((w) => placeLabel(w.label, labelPos.copy(w.g.position).setY(w.g.position.y + 1)));
 }
 
 // ---------- Camera fly ----------
-const HOME_TARGET = new THREE.Vector3(0, 0, 1.5);
-const homeOffset = () => new THREE.Vector3(0, 22, 24).multiplyScalar(camera.aspect < 0.8 ? 1.45 : 1);
+const HOME_TARGET = new THREE.Vector3(0, 0, -1.2);
+const homeOffset = () => new THREE.Vector3(0, 24, 26).multiplyScalar(camera.aspect < 0.8 ? 1.75 : 1);
 let fly = null;
 function flyTo(target, offset) {
   fly = { target: target.clone(), pos: target.clone().add(offset) };
@@ -478,10 +635,12 @@ function select(i) {
   const p = POLICIES[i], grp = GROUPS[p.group];
   cardBody.innerHTML = `
     <span class="tag" style="background:${grp.color}">${grp.name}</span>
-    <h2>${String(i + 1).padStart(2, '0')} ${p.name}</h2>
+    <h2>${p.title}</h2>
     <p>${p.summary}</p>
-    <ul>${p.items.map((t) => `<li>${t}</li>`).join('')}</ul>`;
+    <ul>${p.items.map((t) => `<li>${t}</li>`).join('')}</ul>
+    <a class="source" href="${policyUrl(p)}" target="_blank" rel="noopener">閱讀完整政見 ↗</a>`;
   card.hidden = false;
+  card.scrollTop = 0;
   islands.forEach((g, k) => { g.userData.liftGoal = k === i ? 0.5 : 0; });
   labels.forEach((el, k) => { el.classList.toggle('dim', k !== i); el.classList.toggle('active', k === i); });
   const offset = new THREE.Vector3(5, 7, 9).multiplyScalar(camera.aspect < 0.8 ? 1.5 : 1);
