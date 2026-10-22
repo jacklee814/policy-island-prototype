@@ -116,6 +116,7 @@
   }
   #toast[hidden] { display: none; }
   #card .close { position: absolute; top: 8px; right: 8px; border: none; background: none; font-size: 22px; padding: 4px 10px; }
+  #card .hero { display: none; }
   #card .nav { display: flex; justify-content: space-between; gap: 8px; }
   .label.spot { background: #0f766e; border-color: #0f766e; color: #fff; font-size: 12px; }
   .label.spot::before { content: "◆"; margin-right: 5px; font-size: 10px; color: #99f6e4; }
@@ -124,10 +125,33 @@
     header h1 { font-size: 18px; }
     header p { font-size: 12px; }
     .legend { display: none; }
-    #card { left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; max-height: 52%; }
+    #card {
+      inset: 0; width: auto; max-height: none; border: none; border-radius: 0; z-index: 6;
+      display: flex; flex-direction: column;
+      padding: calc(12px + env(safe-area-inset-top)) 16px calc(12px + env(safe-area-inset-bottom));
+    }
+    #card .close {
+      top: calc(20px + env(safe-area-inset-top)); right: 24px; width: 36px; height: 36px; padding: 0;
+      border-radius: 50%; background: rgba(255, 253, 248, .92); line-height: 1;
+    }
+    #card .hero { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 12px; margin-bottom: 12px; }
+    #card h2 { margin: 8px 0 4px; font-size: 22px; }
+    #card p { margin-bottom: 8px; font-size: 15px; line-height: 1.55; }
+    #card ul { margin-bottom: 10px; font-size: 15px; line-height: 1.5; }
+    #card li + li { margin-top: 5px; }
+    #card .source { margin-bottom: 10px; }
+    #card .share { margin-bottom: 12px; }
+    #card .nav { margin-top: auto; }
     #index { left: 0; right: 0; top: auto; bottom: 0; width: auto; height: 72%; border-radius: 16px 16px 0 0; }
     .label { font-size: 11px; padding: 3px 8px; }
     footer { display: none; }
+  }
+  /* Short phones (e.g. iPhone SE): shrink the hero and type so the full card still fits */
+  @media (max-width: 640px) and (max-height: 720px) {
+    #card .hero { aspect-ratio: 5 / 2; margin-bottom: 8px; }
+    #card h2 { font-size: 19px; }
+    #card p, #card ul { font-size: 14px; line-height: 1.45; }
+    #card li + li { margin-top: 3px; }
   }
 </style>
 <script type="importmap">
@@ -1090,6 +1114,15 @@ const cardBody = document.getElementById('card-body');
 const prevBtn = document.getElementById('prev'), nextBtn = document.getElementById('next');
 let selected = -1, selectedSpot = -1;
 
+function heroImage(target) {
+  if (camera.aspect >= 0.8) return '';
+  const c = document.createElement('canvas');
+  c.width = 720;
+  c.height = 480;
+  drawShot(c.getContext('2d'), target, 0, 0, c.width, c.height);
+  return `<img class="hero" alt="" src="${c.toDataURL('image/jpeg', 0.85)}">`;
+}
+
 function setNavUnit(unit) {
   prevBtn.textContent = `← 上一${unit}`;
   nextBtn.textContent = `下一${unit} →`;
@@ -1100,6 +1133,7 @@ function select(i) {
   selectedSpot = -1;
   const p = POLICIES[i], grp = GROUPS[p.group];
   cardBody.innerHTML = `
+    ${heroImage(islands[i].position.clone().add(new THREE.Vector3(0, 0.9, 0)))}
     <span class="tag" style="background:${grp.color}">${grp.name}</span>
     <h2>${p.title}</h2>
     <p>${p.summary}</p>
@@ -1125,6 +1159,7 @@ function selectSpot(k) {
   selectedSpot = k;
   const s = SPOTS[k];
   cardBody.innerHTML = `
+    ${heroImage(spots[k].g.position.clone().add(new THREE.Vector3(0, 0.8, 0)))}
     <span class="tag" style="background:#0f766e">新北景點</span>
     <h2>${s.name}</h2>
     <p>${s.desc}</p>
@@ -1295,22 +1330,22 @@ function drawLines(ctx, lines, x, y, lineHeight, maxLines) {
   return y + Math.min(lines.length, maxLines) * lineHeight;
 }
 
-// Render the island from a fixed angle and copy a centered square straight off the WebGL canvas.
+// Render a target from a fixed angle and copy a centered crop straight off the WebGL canvas.
 // This must stay synchronous: the drawing buffer is only readable until the browser composites the frame.
-function drawIslandShot(ctx, i, x, y, size) {
+function drawShot(ctx, target, x, y, w, h) {
   const canvas = renderer.domElement;
   const aspect = canvas.width / canvas.height;
-  const target = islands[i].position.clone().add(new THREE.Vector3(0, 0.9, 0));
-  // Keep a 35° view across the shorter side, so portrait screens are not cropped
-  const vFov = aspect < 1 ? THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(17.5)) / aspect)) : 35;
+  // Crop the largest w:h rectangle from the center of the canvas
+  const [sw, sh] = aspect > w / h ? [canvas.height * (w / h), canvas.height] : [canvas.width, canvas.width / (w / h)];
+  // Widen the camera so the crop itself spans a 35° vertical view
+  const vFov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(17.5)) * (canvas.height / sh)));
   const shotCam = new THREE.PerspectiveCamera(vFov, aspect, 0.1, 200);
   shotCam.position.copy(target).add(new THREE.Vector3(6, 7.5, 9.5));
   shotCam.lookAt(target);
   const fog = [scene.fog.near, scene.fog.far];
   [scene.fog.near, scene.fog.far] = [30, 140];
   renderer.render(scene, shotCam);
-  const side = Math.min(canvas.width, canvas.height);
-  ctx.drawImage(canvas, (canvas.width - side) / 2, (canvas.height - side) / 2, side, side, x, y, size, size);
+  ctx.drawImage(canvas, (canvas.width - sw) / 2, (canvas.height - sh) / 2, sw, sh, x, y, w, h);
   [scene.fog.near, scene.fog.far] = fog;
 }
 
@@ -1342,7 +1377,7 @@ function makeStoryCanvas(i) {
   ctx.beginPath();
   ctx.roundRect(shotX, shotY, shot, shot, 40);
   ctx.clip();
-  drawIslandShot(ctx, i, shotX, shotY, shot);
+  drawShot(ctx, islands[i].position.clone().add(new THREE.Vector3(0, 0.9, 0)), shotX, shotY, shot, shot);
   ctx.restore();
 
   let y = shotY + shot + 60;
