@@ -108,6 +108,13 @@
   #card .share { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
   #card .share button { font-size: 13px; padding: 6px 12px; }
   #card .share .ig { color: #fff; border: none; background: linear-gradient(45deg, #f58529, #dd2a7b 55%, #8134af); }
+  #card .share-label { align-self: center; font-size: 13px; color: var(--muted); }
+  #card .share a {
+    display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 10px;
+    font-size: 13px; font-weight: 600; color: #fff; text-decoration: none;
+  }
+  #card .share .line { background: #06c755; }
+  #card .share .fb { background: #1877f2; }
   /* Label level of detail: hide runner names when zoomed out, shorten island names on narrow screens */
   #labels.far .label.person { display: none; }
   #labels.compact .label:not(.active):not(.spot) .name { display: none; }
@@ -1282,7 +1289,9 @@ function select(i) {
     <ul>${p.items.map((t) => `<li>${t}</li>`).join('')}</ul>
     <a class="source" href="${policyUrl(p)}" target="_blank" rel="noopener">閱讀完整政見 ↗</a>
     <div class="share">
-      <button class="ig" type="button">分享到 IG 限時動態</button>
+      <span class="share-label">分享</span>
+      ${socialLinks()}
+      <button class="ig" type="button">IG 限時動態</button>
       <button class="copy" type="button">複製連結</button>
     </div>`;
   openCard();
@@ -1302,7 +1311,11 @@ function selectSpot(k) {
     <h2 tabindex="-1">${s.name}</h2>
     <p>${s.desc}</p>
     <a class="source" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.map)}" target="_blank" rel="noopener">在 Google 地圖開啟 ↗</a>
-    <div class="share"><button class="copy" type="button">複製連結</button></div>`;
+    <div class="share">
+      <span class="share-label">分享</span>
+      ${socialLinks()}
+      <button class="copy" type="button">複製連結</button>
+    </div>`;
   openCard();
   islands.forEach((g) => { g.userData.liftGoal = 0; });
   applyDim();
@@ -1377,6 +1390,13 @@ function shareUrl() {
   if (selected >= 0) return `${SITE}share/policy-${pad(selected)}.html`;
   if (selectedSpot >= 0) return `${SITE}share/spot-${pad(selectedSpot)}.html`;
   return location.href;
+}
+
+// LINE and Facebook read the Open Graph tags of the share page, so the preview shows this item
+function socialLinks() {
+  const u = encodeURIComponent(shareUrl());
+  return `<a class="line" href="https://social-plugins.line.me/lineit/share?url=${u}" target="_blank" rel="noopener" aria-label="分享到 LINE">LINE</a>
+      <a class="fb" href="https://www.facebook.com/sharer/sharer.php?u=${u}" target="_blank" rel="noopener" aria-label="分享到 Facebook">Facebook</a>`;
 }
 
 function setHash(path, title) {
