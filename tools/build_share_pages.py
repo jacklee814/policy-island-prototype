@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parent.parent
-SITE = "https://jacklee814.github.io/policy-island-prototype/"
+SITE = "https://ntpc-island.github.io/"
 OG_IMAGE = SITE + "og.png"
 
 source = (ROOT / "index.html").read_text(encoding="utf-8")
