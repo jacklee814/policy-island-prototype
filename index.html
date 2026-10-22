@@ -115,6 +115,27 @@
     background: rgba(31, 35, 40, .92); color: #fff; font-size: 14px; line-height: 1.5; text-align: center;
   }
   #toast[hidden] { display: none; }
+  #story {
+    position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center;
+    padding: 16px; background: rgba(15, 18, 22, .55);
+  }
+  #story[hidden] { display: none; }
+  .story-box {
+    position: relative; width: min(420px, 100%); max-height: 100%; overflow: auto;
+    padding: 18px; border-radius: 16px; background: var(--card);
+  }
+  .story-box h3 { margin: 0 32px 8px 0; font-size: 18px; }
+  .story-box .close { position: absolute; top: 8px; right: 8px; border: none; background: none; font-size: 22px; padding: 4px 10px; }
+  #story-img {
+    display: block; height: min(44vh, 480px); aspect-ratio: 9 / 16; margin: 4px auto 12px;
+    border-radius: 12px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18);
+  }
+  .story-box ol { margin: 0 0 14px; padding-left: 20px; font-size: 14px; line-height: 1.7; color: var(--ink); }
+  .story-actions { display: flex; gap: 8px; }
+  .story-actions button { flex: 1; padding: 10px; font-weight: 600; }
+  .story-actions .ig { color: #fff; border: none; background: linear-gradient(45deg, #f58529, #dd2a7b 55%, #8134af); }
+  .story-actions [hidden] { display: none; }
+  .story-box .hint { margin: 10px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
   #card .close { position: absolute; top: 8px; right: 8px; border: none; background: none; font-size: 22px; padding: 4px 10px; }
   #card .hero { display: none; }
   #card .nav { display: flex; justify-content: space-between; gap: 8px; }
@@ -190,6 +211,23 @@
   <p id="index-empty" hidden>找不到符合的項目</p>
 </aside>
 <div id="toast" role="status" hidden></div>
+<div id="story" hidden role="dialog" aria-modal="true" aria-labelledby="story-title">
+  <div class="story-box">
+    <button class="close" id="story-close" type="button" aria-label="關閉">×</button>
+    <h3 id="story-title">分享到 IG 限時動態</h3>
+    <img id="story-img" alt="限時動態圖片預覽">
+    <ol>
+      <li>點「分享圖片」</li>
+      <li>在分享選單選 <b>Instagram</b> →「限時動態」</li>
+      <li>網址已複製，可用「連結」貼紙貼上</li>
+    </ol>
+    <div class="story-actions">
+      <button class="ig" id="story-share" type="button">分享圖片</button>
+      <button id="story-download" type="button">下載圖片</button>
+    </div>
+    <p class="hint">分享選單找不到 Instagram？往右滑或點「更多」。iPhone 也可以長按圖片 →「加入照片」。</p>
+  </div>
+</div>
 <article id="card" hidden aria-live="polite">
   <button class="close" id="card-close" type="button" aria-label="關閉">×</button>
   <div id="card-body"></div>
@@ -1206,7 +1244,8 @@ nextBtn.addEventListener('click', () => step(1));
 document.getElementById('home').addEventListener('click', () => { deselect(); flyTo(HOME_TARGET, homeOffset()); });
 addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (!card.hidden) deselect();
+  if (!storyEl.hidden) closeStory();
+  else if (!card.hidden) deselect();
   else if (!indexEl.hidden) toggleIndex(false);
 });
 
@@ -1433,26 +1472,47 @@ function downloadBlob(blob, name) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-function shareStory(i) {
+// Instagram only lets native apps open the story editor with an image, so the web flow is:
+// build the image when the dialog opens, then share or download it on a separate tap.
+const storyEl = document.getElementById('story');
+const storyImg = document.getElementById('story-img');
+const storyShareBtn = document.getElementById('story-share');
+const storyDownloadBtn = document.getElementById('story-download');
+let storyFile = null, storyOpener = null;
+
+function openStory(i, opener) {
   const blob = canvasToBlob(makeStoryCanvas(i));
-  const file = new File([blob], `新北政見島-${POLICIES[i].short}.png`, { type: 'image/png' });
-  const touch = matchMedia('(pointer: coarse)').matches;
-  if (touch && navigator.canShare?.({ files: [file] })) {
-    // Share only the file: adding text or a URL makes some platforms hide Instagram from the share sheet
-    navigator.share({ files: [file] }).catch((e) => {
-      if (e.name !== 'AbortError') downloadBlob(blob, file.name);
-    });
-    showToast('選擇 Instagram →「限時動態」。網址已複製，可用「連結」貼紙貼上');
-  } else {
-    downloadBlob(blob, file.name);
-    showToast('已下載限時動態圖片，上傳到 IG 限時動態後，可用「連結」貼紙貼上已複製的網址');
-  }
+  storyFile = new File([blob], `新北政見島-${POLICIES[i].short}.png`, { type: 'image/png' });
+  if (storyImg.src) URL.revokeObjectURL(storyImg.src);
+  storyImg.src = URL.createObjectURL(blob);
+  storyShareBtn.hidden = !navigator.canShare?.({ files: [storyFile] });
+  storyOpener = opener;
+  storyEl.hidden = false;
   navigator.clipboard?.writeText(location.href).catch(() => {});
+  (storyShareBtn.hidden ? storyDownloadBtn : storyShareBtn).focus();
 }
+
+function closeStory() {
+  storyEl.hidden = true;
+  storyOpener?.focus();
+}
+
+// Share only the file: adding text or a URL makes some platforms hide Instagram from the share sheet
+storyShareBtn.addEventListener('click', () => {
+  navigator.share({ files: [storyFile] }).catch((e) => {
+    if (e.name !== 'AbortError') showToast('無法開啟分享選單，請改用「下載圖片」');
+  });
+});
+storyDownloadBtn.addEventListener('click', () => {
+  downloadBlob(storyFile, storyFile.name);
+  showToast('已下載圖片，到 IG 新增限時動態時從相簿選取');
+});
+document.getElementById('story-close').addEventListener('click', closeStory);
+storyEl.addEventListener('click', (e) => { if (e.target === storyEl) closeStory(); });
 
 cardBody.addEventListener('click', (e) => {
   if (e.target.closest('.copy')) copyLink(e.target.closest('.copy'));
-  else if (e.target.closest('.ig') && selected >= 0) shareStory(selected);
+  else if (e.target.closest('.ig') && selected >= 0) openStory(selected, e.target.closest('.ig'));
 });
 
 // ---------- Picking (click vs drag) ----------
