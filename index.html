@@ -716,6 +716,83 @@ function house(g, x, z, wall, roof, s = 1) {
   g.add(r);
 }
 
+// Short random strokes along the tube's length; as a bump map they read as fur strands
+let furMap;
+function furTexture() {
+  if (furMap) return furMap;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 64;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#808080';
+  ctx.fillRect(0, 0, 64, 64);
+  for (let i = 0; i < 400; i++) {
+    const x = Math.random() * 64, y = Math.random() * 64, l = 2 + Math.random() * 4;
+    ctx.strokeStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + l, y + l * 0.3);
+    ctx.stroke();
+  }
+  furMap = new THREE.CanvasTexture(cv);
+  furMap.wrapS = furMap.wrapT = THREE.RepeatWrapping;
+  furMap.repeat.set(8, 2);
+  return furMap;
+}
+
+// Shiba "taiko" curl: a tapered tube along a spiral that leaves the rump backward, rises and curls forward
+// over the back, skinned to a bone chain so it can wag. The outside of the curl is cream, the inside orange.
+const TAIL_BONES = 6;
+function curlyTail(color, cream) {
+  const CENTER = 0.085, N = 16;
+  const pts = [];
+  for (let i = 0; i <= N; i++) {
+    const s = i / N, a = s * Math.PI * 2.2, rr = CENTER - 0.05 * s;
+    // a = 0 is the root right below the curl center; drifting sideways turns the circle into a spiral
+    pts.push(new THREE.Vector3(0.04 * s, CENTER - rr * Math.cos(a), rr * Math.sin(a)));
+  }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const SEG = 64, RAD = 10, CAP = 0.92, ROOT = 0.08;
+  // Unit radius, so each vertex minus its ring center is the ring normal; scale that by the tapering radius
+  const geo = new THREE.TubeGeometry(curve, SEG, 1, RAD, false);
+  const pos = geo.attributes.position;
+  const P = new THREE.Vector3(), n = new THREE.Vector3(), out = new THREE.Vector3();
+  const orange = new THREE.Color(color), light = new THREE.Color(cream), col = new THREE.Color();
+  const colors = [], skinIndex = [], skinWeight = [];
+  for (let i = 0; i <= SEG; i++) {
+    // Barely tapers; both ends round off into closed caps so the root shows no hole above the back
+    const u = i / SEG, c = Math.max(0, (u - CAP) / (1 - CAP), (ROOT - u) / ROOT);
+    const r = (0.045 - 0.01 * u) * Math.sqrt(1 - c * c);
+    curve.getPointAt(u, P);
+    out.set(0, P.y - CENTER, P.z).normalize();
+    const f = u * (TAIL_BONES - 1), b = Math.min(Math.floor(f), TAIL_BONES - 2);
+    for (let j = 0; j <= RAD; j++) {
+      const k = i * (RAD + 1) + j;
+      n.fromBufferAttribute(pos, k).sub(P);
+      pos.setXYZ(k, P.x + n.x * r, P.y + n.y * r, P.z + n.z * r);
+      col.copy(orange).lerp(light, THREE.MathUtils.smoothstep(n.dot(out), 0, 0.5));
+      colors.push(col.r, col.g, col.b);
+      skinIndex.push(b, b + 1, 0, 0);
+      skinWeight.push(b + 1 - f, f - b, 0, 0);
+    }
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skinIndex, 4));
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skinWeight, 4));
+  const tail = new THREE.SkinnedMesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, bumpMap: furTexture(), bumpScale: 1 }));
+  tail.castShadow = tail.receiveShadow = true;
+  // Bones sit evenly along the curve, each positioned relative to its parent
+  const bones = [];
+  for (let k = 0; k < TAIL_BONES; k++) {
+    const bone = new THREE.Bone();
+    curve.getPointAt(k / (TAIL_BONES - 1), bone.position);
+    if (k) bone.position.sub(curve.getPointAt((k - 1) / (TAIL_BONES - 1)));
+    (bones[k - 1] || tail).add(bone);
+    bones.push(bone);
+  }
+  tail.bind(new THREE.Skeleton(bones));
+  return { tail, bones };
+}
+
 const BUILDERS = {
   coast(g, p, c) {
     // Half of the island is sea, aligned to the hex corners
@@ -808,23 +885,89 @@ const BUILDERS = {
     roof.rotation.y = Math.PI / 4;
     g.add(roof);
     g.add(mesh(new THREE.CylinderGeometry(0.75, 0.75, 0.03, 24), '#a8d5a2', 0.3, 0.02, 0.3));
-    const dog = (color) => {
+    const dog = (color, shiba) => {
       const d = new THREE.Group();
       d.add(mesh(rbox(0.18, 0.16, 0.36, 0.06), color, 0, 0.18, 0));
       d.add(mesh(new THREE.SphereGeometry(0.11, 12, 8), color, 0, 0.3, -0.2));
-      d.add(mesh(new THREE.SphereGeometry(0.03, 6, 4), '#1f2328', 0, 0.29, -0.31));
-      d.add(mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.15, 5), color, 0, 0.3, 0.2));
-      return d;
+      // Front-left, front-right, back-left, back-right
+      const legs = [[-0.06, -0.12], [0.06, -0.12], [-0.06, 0.12], [0.06, 0.12]].map(([x, z]) => {
+        const leg = mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.12, 5), color, x, 0.12, z);
+        leg.geometry.translate(0, -0.06, 0); // pivot at the hip
+        d.add(leg);
+        return leg;
+      });
+      let tailBones = [];
+      if (shiba) {
+        const cream = '#ecd9b0';
+        [-0.05, 0.05].forEach((x) => {
+          // Four-sided cones turned so a flat face points forward; the cream inner ear sits just in front of it
+          const ear = mesh(new THREE.ConeGeometry(0.05, 0.1, 4), color, x * 1.1, 0.41, -0.2);
+          const inner = mesh(new THREE.ConeGeometry(0.035, 0.07, 4), cream, x * 1.1, 0.395, -0.214);
+          ear.rotation.y = inner.rotation.y = Math.PI / 4;
+          d.add(ear, inner);
+          d.add(mesh(new THREE.SphereGeometry(0.015, 6, 4), '#1f2328', x * 0.9, 0.33, -0.3)); // eye
+          const brow = mesh(new THREE.SphereGeometry(0.014, 8, 6), cream, x * 0.9, 0.365, -0.285);
+          brow.scale.x = 1.4;
+          d.add(brow);
+        });
+        // Cream lower front quarter of the head, so the face splits in half at the eyes; muzzle and nose on top
+        d.add(mesh(new THREE.SphereGeometry(0.113, 14, 8, Math.PI, Math.PI, Math.PI / 2, Math.PI / 2), cream, 0, 0.3, -0.2));
+        d.add(mesh(new THREE.SphereGeometry(0.055, 10, 6), cream, 0, 0.27, -0.29));
+        d.add(mesh(new THREE.SphereGeometry(0.022, 6, 4), '#1f2328', 0, 0.29, -0.34));
+        // Cream chest and belly showing under the coat, cream paws
+        d.add(mesh(new THREE.SphereGeometry(0.08, 10, 8), cream, 0, 0.19, -0.14));
+        d.add(mesh(rbox(0.16, 0.08, 0.3, 0.04), cream, 0, 0.13, 0.01));
+        // Cream rump patch under the tail root, joining the belly
+        const rump = mesh(new THREE.SphereGeometry(0.06, 12, 8), cream, 0, 0.17, 0.15);
+        rump.scale.z = 0.6;
+        d.add(rump);
+        // Easter egg: a tiny brown * on the rump patch, only visible when zoomed in; three crossed bars half sunk into the surface
+        [0, 1, 2].forEach((k) => {
+          const bar = mesh(new THREE.BoxGeometry(0.014, 0.003, 0.003), '#6b4226', 0, 0.18, 0.1855);
+          bar.rotation.z = (k * Math.PI) / 3 + Math.PI / 2;
+          d.add(bar);
+        });
+        legs.forEach((leg) => {
+          const paw = mesh(new THREE.SphereGeometry(0.032, 8, 6), cream, 0, -0.115, -0.01);
+          paw.scale.y = 0.6;
+          leg.add(paw);
+        });
+        // Collar tilts back so its high point rests just above the back, low point on the chest
+        const collar = mesh(new THREE.TorusGeometry(0.1, 0.011, 6, 20), '#b8322a', 0, 0.22, -0.15);
+        collar.rotation.x = 1.0;
+        d.add(collar);
+        const curl = curlyTail(color, cream);
+        curl.tail.position.set(0, 0.25, 0.15); // root sits inside the top of the rump
+        d.add(curl.tail);
+        tailBones = curl.bones;
+      } else {
+        d.add(mesh(new THREE.SphereGeometry(0.03, 6, 4), '#1f2328', 0, 0.29, -0.31));
+        d.add(mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.15, 5), color, 0, 0.3, 0.2));
+      }
+      return { d, legs, tailBones };
     };
     // Dogs run in circles around the lawn; the head points along -z, which is the tangent of a +y rotation
-    [['#d9a066', 0.6, 0], ['#f5f5f0', 0.35, Math.PI]].forEach(([color, r, phase]) => {
+    [['#d98a3d', 0.6, 0, true], ['#f5f5f0', 0.35, Math.PI, false]].forEach(([color, r, phase, shiba]) => {
       const pivot = new THREE.Group();
       pivot.position.set(0.3, 0, 0.3);
-      const d = dog(color);
+      const { d, legs, tailBones } = dog(color, shiba);
       d.position.x = r;
       pivot.add(d);
       g.add(pivot);
-      animators.push((t) => { pivot.rotation.y = t * 0.9 + phase; });
+      animators.push((t) => {
+        pivot.rotation.y = t * 0.9 + phase;
+        const step = t * 14 + phase;
+        const swing = Math.sin(step) * 0.6;
+        // Trot: diagonal legs move together
+        legs[0].rotation.x = legs[3].rotation.x = swing;
+        legs[1].rotation.x = legs[2].rotation.x = -swing;
+        d.position.y = Math.abs(Math.sin(step)) * 0.03;
+        // A wave runs down the bone chain: quick side-to-side wag plus a slow up-and-down breath
+        tailBones.forEach((bone, k) => {
+          bone.rotation.y = Math.sin(t * 12 - k * 0.5) * 0.1;
+          bone.rotation.x = Math.sin(t * 1.6 - k * 0.3) * 0.04;
+        });
+      });
     });
     tree(g, 1.0, -0.6, 0.7); tree(g, -0.95, 0.7, 0.6);
   },
