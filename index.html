@@ -288,7 +288,7 @@ const BUILDERS = {
     const sub = mesh(new THREE.CapsuleGeometry(0.15, 0.6, 4, 10), '#4b5563', 1.2, 0.18, 0.1);
     sub.rotation.z = Math.PI / 2;
     g.add(sub);
-    tree(g, -0.4, 1.3, 0.6);
+    tree(g, -0.3, 1.1, 0.6);
   },
   school(g, p, c) {
     g.add(mesh(rbox(1.8, 0.8, 0.8, 0.05), '#f5e6c8', 0, 0.4, -0.5));
@@ -354,7 +354,7 @@ const BUILDERS = {
     g.add(sparkle);
     animators.push((t) => { sparkle.rotation.y = t * 2; sparkle.scale.setScalar(0.8 + Math.sin(t * 4) * 0.3); });
     house(g, 0.9, 0.7, '#ffffff', c, 0.6);
-    tree(g, -1, 0.9, 0.6);
+    tree(g, -0.9, 0.7, 0.6);
   },
   pets(g, p, c) {
     g.add(mesh(rbox(0.6, 0.45, 0.6, 0.04), '#c0814f', -0.8, 0.225, -0.5));
@@ -380,13 +380,13 @@ const BUILDERS = {
       g.add(pivot);
       animators.push((t) => { pivot.rotation.y = t * 0.9 + phase; });
     });
-    tree(g, 1.2, -0.7, 0.7); tree(g, -1.1, 0.8, 0.6);
+    tree(g, 1.0, -0.6, 0.7); tree(g, -0.95, 0.7, 0.6);
   },
   clinic(g, p, c) {
     house(g, 0, -0.1, '#ffffff', c, 1.2);
     g.add(mesh(new THREE.BoxGeometry(0.36, 0.1, 0.02), '#e5484d', 0, 0.55, 0.39));
     g.add(mesh(new THREE.BoxGeometry(0.1, 0.36, 0.02), '#e5484d', 0, 0.55, 0.39));
-    tree(g, -1.1, 0.4, 0.7); tree(g, 1.1, 0.6, 0.7); tree(g, 0.9, -1, 0.6);
+    tree(g, -1.1, 0.4, 0.7); tree(g, 1.1, 0.6, 0.7); tree(g, 0.8, -0.85, 0.6);
   },
   mountain(g, p, c) {
     g.add(mesh(new THREE.ConeGeometry(0.9, 1.6, 6), '#6aa36f', -0.4, 0.8, -0.5));
@@ -394,13 +394,13 @@ const BUILDERS = {
     const gem = mesh(new THREE.OctahedronGeometry(0.22), c, -0.4, 2.0, -0.5, { emissive: c, emissiveIntensity: 0.35, metalness: 0.3, roughness: 0.2 });
     g.add(gem);
     animators.push((t) => { gem.rotation.y = t * 1.2; gem.position.y = 2.0 + Math.sin(t * 1.5) * 0.08; });
-    g.add(mesh(new THREE.BoxGeometry(3, 0.04, 0.16), '#6b7280', 0, 0.02, 0.85));
+    g.add(mesh(new THREE.BoxGeometry(2.4, 0.04, 0.16), '#6b7280', 0, 0.02, 0.85));
     const train = new THREE.Group();
     train.add(mesh(rbox(0.5, 0.26, 0.24, 0.05), '#d94f3d', 0, 0.17, 0));
     train.add(mesh(rbox(0.5, 0.26, 0.24, 0.05), '#f2a03d', -0.56, 0.17, 0));
     train.position.z = 0.85;
     g.add(train);
-    animators.push((t) => { train.position.x = Math.sin(t * 0.5) * 0.8 + 0.3; });
+    animators.push((t) => { train.position.x = Math.sin(t * 0.5) * 0.6 + 0.25; });
     // Tea bushes
     for (let i = 0; i < 4; i++) {
       const b = mesh(new THREE.SphereGeometry(0.17, 10, 6), '#4d8f4f', 0.6 + (i % 2) * 0.4, 0.08, 0.15 + Math.floor(i / 2) * 0.3);
@@ -416,7 +416,7 @@ const BUILDERS = {
     for (let i = 0; i < 9; i++) {
       g.add(mesh(new THREE.ConeGeometry(0.06, 0.32, 5), '#e0b04a', 0.6 + (i % 3) * 0.25, 0.16, 0.3 + Math.floor(i / 3) * 0.25));
     }
-    tree(g, 1.1, -0.8, 0.8); tree(g, -1.2, 0.8, 0.7);
+    tree(g, 0.95, -0.7, 0.8); tree(g, -1.0, 0.7, 0.7);
   },
   hakka(g, p, c) {
     // Bogong shrine
@@ -426,7 +426,7 @@ const BUILDERS = {
     roof.rotation.y = Math.PI / 4;
     g.add(roof);
     // Tung trees in blossom
-    [[0.6, -0.7], [1.0, 0.4], [-0.9, 0.8]].forEach(([x, z]) => {
+    [[0.6, -0.7], [0.95, 0.35], [-0.7, 0.6]].forEach(([x, z]) => {
       g.add(mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.5, 6), '#8a6a4a', x, 0.25, z));
       g.add(mesh(new THREE.IcosahedronGeometry(0.38, 1), '#f7f5ee', x, 0.75, z));
     });
@@ -445,19 +445,34 @@ const BUILDERS = {
     house(g, -0.4, -0.2, '#fff4e3', p.roof || c);
     house(g, 0.7, 0.5, '#fff4e3', p.roof || c, 0.7);
     g.add(mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.04, 20), '#f6d27a', 0.6, 0.02, -0.8));
-    tree(g, -1.1, 0.8, 0.7);
+    tree(g, -0.95, 0.7, 0.7);
   },
   towers(g, p, c) {
     const base = p.glass ? '#9cc3e6' : shade(c, 0.45);
     [[-0.6, -0.3, 2.2], [0.5, -0.5, 1.6], [0.1, 0.7, 1.2]].forEach(([x, z, h], i) => {
       g.add(mesh(rbox(0.8, h, 0.8), i === 0 ? c : base, x, h / 2, z, p.glass ? { metalness: 0.2, roughness: 0.3 } : undefined));
     });
-    tree(g, 1.1, 0.6, 0.6); tree(g, -1.2, 0.8, 0.7);
+    tree(g, 1.0, 0.55, 0.6); tree(g, -1.0, 0.7, 0.7);
   },
 };
 
 // ---------- Islands ----------
 const R = 2.2, H = 0.7, GAP = 1.06;
+
+// Running track: a hexagonal ring along each island rim, centered on the people's walk graph
+const PATH_R = R * 0.86, PATH_W = 0.32, PATH_T = 0.04, PATH_TOP = H + 0.05, TRACK_COLOR = '#c96a50';
+function hexRingGeometry(rMid, width, depth) {
+  const d = width / 2 / Math.cos(Math.PI / 6);
+  // Shape y maps to world -z after rotateX, so corners land at (sin a, cos a) like the island prism
+  const corners = (r) => Array.from({ length: 6 }, (_, k) => new THREE.Vector2(Math.sin((k * Math.PI) / 3) * r, -Math.cos((k * Math.PI) / 3) * r));
+  const shape = new THREE.Shape(corners(rMid + d));
+  shape.holes.push(new THREE.Path(corners(rMid - d).reverse()));
+  const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
+  geo.rotateX(-Math.PI / 2);
+  return geo;
+}
+const trackGeo = hexRingGeometry(PATH_R, PATH_W, PATH_T);
+const laneGeo = hexRingGeometry(PATH_R, 0.025, PATH_T + 0.004);
 const hexToWorld = (q, r) => [R * GAP * Math.sqrt(3) * (q + r / 2), R * GAP * 1.5 * r];
 
 // Taipei: a flat, non-interactive plateau in the middle of the ring
@@ -488,6 +503,14 @@ const islands = POLICIES.map((p, i) => {
   content.position.y = H;
   BUILDERS[p.type](content, p, color);
   g.add(content);
+
+  const track = new THREE.Mesh(trackGeo, mat(TRACK_COLOR));
+  track.position.y = PATH_TOP - PATH_T;
+  track.receiveShadow = true;
+  g.add(track);
+  const lane = new THREE.Mesh(laneGeo, mat('#fff7ea'));
+  lane.position.y = PATH_TOP - PATH_T;
+  g.add(lane);
   scene.add(g);
   return g;
 });
@@ -535,7 +558,7 @@ const PEOPLE = [
   { name: 'Jack', look: 'male', shirt: '#3a9b6a', hair: '#6b4a2b' },
   { name: '柚子', look: 'male', shirt: '#f2a03d', hair: '#1f1f1f' },
 ];
-const SKIN = '#f3c9a5', WALK_SPEED = 0.7;
+const SKIN = '#f3c9a5', RUN_SPEED = 1.5;
 
 // Walk graph: inset corners of every island, linked around each rim and to nearby corners of neighboring islands,
 // so people stroll along the island edges instead of walking through buildings
@@ -570,9 +593,18 @@ function makePerson(p) {
   g.add(mesh(new THREE.SphereGeometry(0.118, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), p.hair, 0, headY, -0.01));
   if (female) g.add(mesh(rbox(0.2, 0.24, 0.06, 0.03), p.hair, 0, headY - 0.08, -0.08));
   [-0.04, 0.04].forEach((x) => g.add(mesh(new THREE.SphereGeometry(0.015, 6, 4), '#1f2328', x, headY + 0.01, 0.1)));
+  const shoulder = female ? [0.08, 0.52, 0.3] : [0.14, 0.47, 0];
+  const arms = [-1, 1].map((side) => {
+    const arm = mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.2, 6), p.shirt, side * shoulder[0], shoulder[1], 0);
+    arm.geometry.translate(0, -0.1, 0); // pivot at the shoulder
+    arm.rotation.z = side * shoulder[2]; // splay out so arms clear the dress
+    g.add(arm);
+    return arm;
+  });
+  g.rotation.order = 'YXZ'; // face the heading first, then lean forward
   g.scale.setScalar(1.15);
   scene.add(g);
-  return { g, legs };
+  return { g, legs, arms };
 }
 
 const people = PEOPLE.map((p, i) => {
@@ -588,26 +620,50 @@ function stepPerson(w, dt) {
   if (w.wait > 0) w.wait -= dt;
   else {
     const a = nodes[w.from], b = nodes[w.to];
-    w.t += (dt * WALK_SPEED) / Math.max(0.01, Math.hypot(b.x - a.x, b.z - a.z));
-    w.phase += dt * 10;
+    w.t += (dt * RUN_SPEED) / Math.max(0.01, Math.hypot(b.x - a.x, b.z - a.z));
+    w.phase += dt * 16;
     if (w.t >= 1) {
       const options = nodes[w.to].links.filter((j) => j !== w.from);
       [w.from, w.to, w.t] = [w.to, options[Math.floor(Math.random() * options.length)], 0];
-      if (Math.random() < 0.2) w.wait = 0.6 + Math.random() * 1.6;
+      if (Math.random() < 0.1) w.wait = 0.6 + Math.random() * 1.6;
     }
   }
-  const walking = w.wait <= 0 && dt > 0;
+  const running = w.wait <= 0 && dt > 0;
   const a = nodes[w.from], b = nodes[w.to];
   const lift = THREE.MathUtils.lerp(islands[a.island].position.y, islands[b.island].position.y, w.t);
   w.g.position.set(
     THREE.MathUtils.lerp(a.x, b.x, w.t),
-    H + lift + (walking ? Math.abs(Math.sin(w.phase)) * 0.025 : 0),
+    PATH_TOP + lift + (running ? Math.abs(Math.sin(w.phase)) * 0.05 : 0),
     THREE.MathUtils.lerp(a.z, b.z, w.t),
   );
   w.g.rotation.y = Math.atan2(b.x - a.x, b.z - a.z);
-  const swing = walking ? Math.sin(w.phase) * 0.5 : 0;
+  w.g.rotation.x = running ? 0.18 : 0;
+  const swing = running ? Math.sin(w.phase) * 0.8 : 0;
   w.legs[0].rotation.x = swing;
   w.legs[1].rotation.x = -swing;
+  w.arms[0].rotation.x = -swing;
+  w.arms[1].rotation.x = swing;
+}
+
+// Short bridges join the tracks of neighboring islands; they follow each island's bob and lift every frame
+const bridgeGeo = new THREE.BoxGeometry(PATH_W, PATH_T, 1);
+const bridges = [];
+nodes.forEach((n, i) => n.links.forEach((j) => {
+  if (j <= i || nodes[j].island === n.island) return;
+  const m = new THREE.Mesh(bridgeGeo, mat(TRACK_COLOR));
+  m.castShadow = m.receiveShadow = true;
+  scene.add(m);
+  bridges.push({ m, a: n, b: nodes[j] });
+}));
+const endA = new THREE.Vector3(), endB = new THREE.Vector3();
+function updateBridges() {
+  bridges.forEach(({ m, a, b }) => {
+    endA.set(a.x, islands[a.island].position.y + PATH_TOP - PATH_T / 2, a.z);
+    endB.set(b.x, islands[b.island].position.y + PATH_TOP - PATH_T / 2, b.z);
+    m.position.lerpVectors(endA, endB, 0.5);
+    m.scale.z = endA.distanceTo(endB) + PATH_W; // overlap onto both rims
+    m.lookAt(endB);
+  });
 }
 
 function updatePersonLabels() {
@@ -701,6 +757,7 @@ renderer.setAnimationLoop(() => {
     u.lift += (goal - u.lift) * Math.min(1, dt * 8);
     g.position.y = u.lift + (reduced ? 0 : Math.sin(t * 0.8 + i * 1.3) * 0.06);
   });
+  updateBridges();
   people.forEach((w) => stepPerson(w, reduced ? 0 : dt));
   if (fly) {
     const k = Math.min(1, dt * 3);
