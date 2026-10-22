@@ -1718,7 +1718,7 @@ function flexMessage() {
         layout: 'vertical',
         spacing: 'sm',
         contents: [
-          { type: 'button', style: 'primary', color, height: 'sm', action: { type: 'uri', label: isPolicy ? '看 3D 政見島' : '看 3D 地圖', uri: link } },
+          { type: 'button', style: 'primary', color, height: 'sm', action: { type: 'uri', label: '前往新北政見島', uri: link } },
           isPolicy
             ? { type: 'button', style: 'link', height: 'sm', action: { type: 'uri', label: '官方完整政見', uri: policyUrl(p) } }
             : { type: 'button', style: 'link', height: 'sm', action: { type: 'uri', label: 'Google 地圖', uri: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.map)}` } },
