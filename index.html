@@ -897,7 +897,7 @@ const BUILDERS = {
 };
 
 // ---------- Islands ----------
-const R = 2.2, H = 0.7, GAP = 1.06;
+const R = 2.2, H = 0.7, GAP = 1.13;
 
 // Running track: a hexagonal ring along each island rim, centered on the people's walk graph
 const PATH_R = R * 0.86, PATH_W = 0.32, PATH_T = 0.04, PATH_TOP = H + 0.05, TRACK_COLOR = '#c96a50';
@@ -911,6 +911,8 @@ function hexRingGeometry(rMid, width, depth) {
   geo.rotateX(-Math.PI / 2);
   return geo;
 }
+// Distance between facing track corners of two neighboring islands, i.e. how long each bridge is
+const BRIDGE_SPAN = Math.sqrt(3) * (R * GAP - PATH_R);
 const trackGeo = hexRingGeometry(PATH_R, PATH_W, PATH_T);
 const laneGeo = hexRingGeometry(PATH_R, 0.025, PATH_T + 0.004);
 const hexToWorld = (q, r) => [R * GAP * Math.sqrt(3) * (q + r / 2), R * GAP * 1.5 * r];
@@ -1362,7 +1364,7 @@ nodes.forEach((n, idx) => {
   const k = idx % 6, base = idx - k;
   n.links.push(base + ((k + 1) % 6), base + ((k + 5) % 6));
   nodes.forEach((m, j) => {
-    if (m.island !== n.island && Math.hypot(m.x - n.x, m.z - n.z) < 1) n.links.push(j);
+    if (m.island !== n.island && Math.hypot(m.x - n.x, m.z - n.z) < BRIDGE_SPAN + 0.25) n.links.push(j);
   });
 });
 
