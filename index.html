@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>政策島原型</title>
+<meta name="description" content="用 Three.js 做的 3D 政策島互動原型（假資料）">
+<style>
+  :root {
+    --bg: #f3efe6;
+    --ink: #1f2328;
+    --muted: #5b6370;
+    --card: #fffdf8;
+    --line: #e3dccd;
+    --accent: #e0663d;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--ink);
+    font-family: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", sans-serif;
+  }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; touch-action: none; }
+  #labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .label {
+    position: absolute; left: 0; top: 0;
+    padding: 4px 10px; border-radius: 999px;
+    background: rgba(255, 253, 248, .92); border: 1px solid var(--line);
+    font-size: 13px; font-weight: 600; white-space: nowrap;
+    pointer-events: auto; cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
+    transition: opacity .25s;
+  }
+  .label .n { color: var(--accent); margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .label.dim { opacity: .3; }
+  .label.active { border-color: var(--accent); }
+  header {
+    position: fixed; top: 16px; left: 16px; right: 16px;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+    pointer-events: none;
+  }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  header button { pointer-events: auto; }
+  button {
+    font: inherit; color: var(--ink); background: var(--card);
+    border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  #card {
+    position: fixed; right: 16px; top: 84px; width: 340px; max-height: calc(100% - 100px);
+    overflow: auto; padding: 20px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .12);
+  }
+  #card[hidden] { display: none; }
+  #card .tag { display: inline-block; font-size: 12px; color: #fff; border-radius: 999px; padding: 2px 10px; }
+  #card h2 { margin: 10px 0 6px; font-size: 22px; }
+  #card p { color: var(--muted); line-height: 1.6; margin: 0 0 12px; }
+  #card ul { padding-left: 18px; margin: 0 0 16px; line-height: 1.8; }
+  #card .close { position: absolute; top: 8px; right: 8px; border: none; background: none; font-size: 22px; padding: 4px 10px; }
+  #card .nav { display: flex; justify-content: space-between; gap: 8px; }
+  footer { position: fixed; left: 16px; bottom: 12px; font-size: 12px; color: var(--muted); }
+  @media (max-width: 640px) {
+    #card { left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; max-height: 48%; }
+    .label { font-size: 11px; padding: 3px 8px; }
+    footer { display: none; }
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="stage" role="img" aria-label="14 個六邊形島嶼組成的 3D 政策城市，點選島嶼可查看內容"></div>
+<div id="labels"></div>
+<header>
+  <div>
+    <h1>政策島原型</h1>
+    <p>點一座島，看它的政策內容 · 拖曳旋轉、滾輪縮放</p>
+  </div>
+  <button id="home" type="button">全景</button>
+</header>
+<article id="card" hidden aria-live="polite">
+  <button class="close" id="card-close" type="button" aria-label="關閉">×</button>
+  <div id="card-body"></div>
+  <div class="nav">
+    <button id="prev" type="button">← 上一座</button>
+    <button id="next" type="button">下一座 →</button>
+  </div>
+</article>
+<footer>原型 Demo · 內容皆為假資料，不代表任何真實政見</footer>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+// ---------- Fake data ----------
+const GROUPS = {
+  mobility: { name: '交通', color: '#3f7fd0' },
+  living: { name: '居住', color: '#e0663d' },
+  care: { name: '照顧', color: '#d9a21b' },
+  green: { name: '綠能', color: '#3a9b6a' },
+  civic: { name: '公共', color: '#7b5cc4' },
+};
+
+const POLICIES = [
+  { name: '公車路網重整', group: 'mobility', type: 'transit', summary: '以幹線加支線重新規劃路網，縮短轉乘等候時間。', items: ['尖峰班距 8 分鐘以內', '轉乘 30 分鐘內免費', '即時到站資訊全面上線'] },
+  { name: '社會住宅', group: 'living', type: 'towers', summary: '在捷運站周邊興建只租不售的社會住宅。', items: ['四年新增 5,000 戶', '租金為市價六至八成', '保留三成給青年與新婚家庭'] },
+  { name: '口袋公園', group: 'green', type: 'park', summary: '把閒置畸零地改造成步行五分鐘可達的小公園。', items: ['每個行政區至少 10 處', '社區參與式設計', '夜間照明與無障礙步道'] },
+  { name: '公共托育', group: 'care', type: 'house', roof: '#f2a65a', summary: '擴大平價公共托育，讓家長安心工作。', items: ['新增 60 處托育據點', '延長收托至晚上 8 點', '托育人員薪資補助'] },
+  { name: '社區長照站', group: 'care', type: 'clinic', summary: '以里為單位設置長照據點，讓長輩在熟悉的社區老化。', items: ['每 3 個里一處據點', '日間照顧與共餐', '居家醫療巡迴'] },
+  { name: '屋頂光電', group: 'green', type: 'solar', summary: '公有建築屋頂全面設置太陽能板。', items: ['公有屋頂設置率 80%', '收益回饋社區基金', '民間屋頂設置補助'] },
+  { name: '低碳示範區', group: 'green', type: 'wind', summary: '選定示範區導入小型風電與智慧電網。', items: ['示範區用電三成綠電', '智慧電表全面安裝', '年度減碳成果公開'] },
+  { name: '市場改建', group: 'living', type: 'market', summary: '老舊傳統市場改建，兼顧攤商權益與環境衛生。', items: ['改建期間臨時攤位安置', '冷鏈與排水設施更新', '友善行動支付'] },
+  { name: '圖書館 2.0', group: 'civic', type: 'dome', domeColor: '#b9a6e8', summary: '圖書館轉型為社區學習與創作中心。', items: ['延長開館至晚上 10 點', '數位創作工作室', '分館預約借還'] },
+  { name: '國民運動中心', group: 'civic', type: 'dome', domeColor: '#9fd0c4', summary: '補足運動中心缺口，提供平價運動空間。', items: ['新增 3 座運動中心', '長者與學生優惠時段', '夜間球場開放'] },
+  { name: '河岸再生', group: 'green', type: 'bridge', summary: '整治河岸、串連自行車道與親水空間。', items: ['水質改善監測公開', '新增 4 座人行橋', '河濱活動空間'] },
+  { name: '青年創業基地', group: 'living', type: 'towers', glass: true, summary: '提供低租金辦公空間與創業輔導。', items: ['共享辦公室 500 席', '業師一對一輔導', '首年租金減半'] },
+  { name: '自行車路網', group: 'mobility', type: 'track', summary: '建立連續、安全的自行車路網。', items: ['新增 50 公里自行車道', '路口號誌優先', '公共自行車站加密'] },
+  { name: '數位市政', group: 'civic', type: 'antenna', summary: '市政服務線上化，一個帳號辦好所有事。', items: ['九成申辦項目可線上完成', '開放資料 API', '市民數位身分整合'] },
+];
+
+// Axial hex coordinates for 14 cells forming an irregular blob
+const CELLS = [
+  [0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1],
+  [2, -1], [2, -2], [-2, 1], [-1, 2], [0, 2], [1, -2], [-2, 2],
+];
+
+// ---------- Renderer / scene ----------
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+
+const BG = new THREE.Color('#f3efe6');
+const scene = new THREE.Scene();
+scene.background = BG;
+scene.fog = new THREE.Fog(BG, 45, 95);
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 200);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.minDistance = 6;
+controls.maxDistance = 60;
+controls.maxPolarAngle = Math.PI * 0.44;
+
+scene.add(new THREE.HemisphereLight('#fff7ea', '#b9c7c4', 1.6));
+const sun = new THREE.DirectionalLight('#ffffff', 2.4);
+sun.position.set(14, 24, 10);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 70 });
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+
+const sea = new THREE.Mesh(
+  new THREE.CircleGeometry(80, 64),
+  new THREE.MeshStandardMaterial({ color: '#d6e6e2', roughness: 1 }),
+);
+sea.rotation.x = -Math.PI / 2;
+sea.position.y = -1.2;
+sea.receiveShadow = true;
+scene.add(sea);
+
+// ---------- Model kit ----------
+const matCache = new Map();
+const mat = (color, extra = {}) => {
+  const key = color + JSON.stringify(extra);
+  if (!matCache.has(key)) matCache.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...extra }));
+  return matCache.get(key);
+};
+const mesh = (geo, color, x = 0, y = 0, z = 0, extra) => {
+  const m = new THREE.Mesh(geo, mat(color, extra));
+  m.position.set(x, y, z);
+  m.castShadow = m.receiveShadow = true;
+  return m;
+};
+const rbox = (w, h, d, r = 0.08) => new RoundedBoxGeometry(w, h, d, 2, r);
+const shade = (hex, amt) => '#' + new THREE.Color(hex).lerp(new THREE.Color(amt > 0 ? '#ffffff' : '#000000'), Math.abs(amt)).getHexString();
+
+const animators = [];
+
+function tree(g, x, z, s = 1) {
+  g.add(mesh(new THREE.CylinderGeometry(0.06 * s, 0.08 * s, 0.4 * s, 6), '#8a6a4a', x, 0.2 * s, z));
+  g.add(mesh(new THREE.ConeGeometry(0.35 * s, 0.9 * s, 7), '#4f9a5f', x, 0.75 * s, z));
+}
+
+function house(g, x, z, wall, roof, s = 1) {
+  g.add(mesh(rbox(0.9 * s, 0.7 * s, 0.8 * s, 0.05), wall, x, 0.35 * s, z));
+  const r = mesh(new THREE.ConeGeometry(0.75 * s, 0.5 * s, 4), roof, x, 0.95 * s, z);
+  r.rotation.y = Math.PI / 4;
+  g.add(r);
+}
+
+const BUILDERS = {
+  transit(g, p, c) {
+    g.add(mesh(new THREE.BoxGeometry(3.4, 0.04, 0.9), '#6b7280', 0, 0.02, 0));
+    const bus = new THREE.Group();
+    bus.add(mesh(rbox(1.3, 0.5, 0.55, 0.12), c, 0, 0.32, 0));
+    bus.add(mesh(new THREE.BoxGeometry(1.1, 0.16, 0.57), '#dbeafe', 0, 0.42, 0));
+    g.add(bus);
+    const phase = Math.random() * 6;
+    animators.push((t) => { bus.position.x = Math.sin(t * 0.6 + phase) * 0.9; });
+    g.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8, 6), '#4b5563', 1.2, 0.4, 0.75));
+    g.add(mesh(new THREE.BoxGeometry(0.5, 0.06, 0.3), c, 1.2, 0.82, 0.75));
+    tree(g, -1, -1, 0.8); tree(g, 0.4, -1.1, 0.7);
+  },
+  towers(g, p, c) {
+    const base = p.glass ? '#9cc3e6' : shade(c, 0.45);
+    [[-0.6, -0.3, 2.2], [0.5, -0.5, 1.6], [0.1, 0.7, 1.2]].forEach(([x, z, h], i) => {
+      g.add(mesh(rbox(0.8, h, 0.8), i === 0 ? c : base, x, h / 2, z, p.glass ? { metalness: 0.2, roughness: 0.3 } : undefined));
+    });
+    tree(g, 1.1, 0.6, 0.6); tree(g, -1.2, 0.8, 0.7);
+  },
+  park(g) {
+    g.add(mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.04, 24), '#8ec5d6', 0.3, 0.02, 0.2));
+    [[-0.9, -0.6], [-0.4, -1.1], [0.9, -0.8], [-1.1, 0.5], [0.9, 1], [-0.3, 1.1]].forEach(([x, z], i) => tree(g, x, z, 0.8 + (i % 3) * 0.15));
+  },
+  house(g, p, c) {
+    house(g, -0.4, -0.2, '#fff4e3', p.roof || c);
+    house(g, 0.7, 0.5, '#fff4e3', p.roof || c, 0.7);
+    g.add(mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.04, 20), '#f6d27a', 0.6, 0.02, -0.8));
+    tree(g, -1.1, 0.8, 0.7);
+  },
+  clinic(g, p, c) {
+    house(g, 0, -0.1, '#ffffff', c, 1.2);
+    g.add(mesh(new THREE.BoxGeometry(0.36, 0.1, 0.02), '#e5484d', 0, 0.55, 0.39));
+    g.add(mesh(new THREE.BoxGeometry(0.1, 0.36, 0.02), '#e5484d', 0, 0.55, 0.39));
+    tree(g, -1.1, 0.4, 0.7); tree(g, 1.1, 0.6, 0.7); tree(g, 0.9, -1, 0.6);
+  },
+  solar(g) {
+    for (let i = 0; i < 6; i++) {
+      const x = (i % 3 - 1) * 0.9, z = Math.floor(i / 3) * 0.9 - 0.45;
+      g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 6), '#9ca3af', x, 0.15, z));
+      const panel = mesh(new THREE.BoxGeometry(0.75, 0.04, 0.5), '#24407a', x, 0.35, z, { metalness: 0.4, roughness: 0.3 });
+      panel.rotation.x = -0.5;
+      g.add(panel);
+    }
+  },
+  wind(g) {
+    [[-0.5, -0.2, 1], [0.7, 0.5, 0.8]].forEach(([x, z, s]) => {
+      g.add(mesh(new THREE.CylinderGeometry(0.05 * s, 0.09 * s, 2.4 * s, 8), '#f8fafc', x, 1.2 * s, z));
+      const rotor = new THREE.Group();
+      rotor.position.set(x, 2.4 * s, z + 0.1);
+      rotor.add(mesh(new THREE.SphereGeometry(0.1 * s, 12, 8), '#f8fafc'));
+      for (let k = 0; k < 3; k++) {
+        const blade = mesh(new THREE.BoxGeometry(0.08 * s, 0.9 * s, 0.03), '#f8fafc', 0, 0, 0);
+        blade.geometry.translate(0, 0.45 * s, 0);
+        blade.rotation.z = (k * Math.PI * 2) / 3;
+        rotor.add(blade);
+      }
+      g.add(rotor);
+      animators.push((t, dt) => { rotor.rotation.z -= dt * 1.6; });
+    });
+    tree(g, 0.9, -0.9, 0.6);
+  },
+  market(g, p, c) {
+    const colors = [c, '#3f7fd0', '#3a9b6a', '#d9a21b'];
+    [[-0.7, -0.6], [0.5, -0.6], [-0.7, 0.6], [0.5, 0.6]].forEach(([x, z], i) => {
+      g.add(mesh(rbox(0.8, 0.4, 0.6, 0.04), '#fff4e3', x, 0.2, z));
+      const awning = mesh(new THREE.BoxGeometry(0.95, 0.05, 0.75), colors[i], x, 0.55, z);
+      awning.rotation.x = 0.25;
+      g.add(awning);
+    });
+  },
+  dome(g, p, c) {
+    g.add(mesh(new THREE.CylinderGeometry(1.1, 1.15, 0.5, 24), '#fff4e3', 0, 0.25, 0));
+    g.add(mesh(new THREE.SphereGeometry(1.05, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), p.domeColor || c, 0, 0.5, 0));
+    g.add(mesh(new THREE.BoxGeometry(0.4, 0.4, 0.1), shade(c, -0.2), 0, 0.2, 1.12));
+  },
+  bridge(g) {
+    g.add(mesh(new THREE.BoxGeometry(3.6, 0.03, 1), '#7cc0d8', 0, 0.02, 0));
+    const arch = mesh(new THREE.TorusGeometry(0.8, 0.07, 8, 24, Math.PI), '#e5e7eb', 0, 0, 0);
+    arch.rotation.y = Math.PI / 2;
+    g.add(arch);
+    g.add(mesh(new THREE.BoxGeometry(0.4, 0.06, 1.8), '#cbd5e1', 0, 0.82, 0));
+    [[-1.1, -1], [1.1, -1], [-1.1, 1], [1.1, 1]].forEach(([x, z]) => tree(g, x, z, 0.65));
+  },
+  track(g, p, c) {
+    const ring = mesh(new THREE.TorusGeometry(1.1, 0.12, 6, 40), '#6b7280', 0, 0.03, 0);
+    ring.rotation.x = Math.PI / 2;
+    ring.scale.set(1, 0.75, 0.3);
+    g.add(ring);
+    tree(g, 0, 0, 0.8);
+    const riders = [0, 2.1, 4.2].map(() => {
+      const r = mesh(new THREE.SphereGeometry(0.12, 10, 8), c, 0, 0.18, 0);
+      g.add(r);
+      return r;
+    });
+    animators.push((t) => riders.forEach((r, i) => {
+      const a = t * 0.7 + i * 2.1;
+      r.position.set(Math.cos(a) * 1.1, 0.18, Math.sin(a) * 0.82);
+    }));
+  },
+  antenna(g, p, c) {
+    g.add(mesh(rbox(1, 1.4, 1), '#e5e7eb', -0.3, 0.7, 0));
+    g.add(mesh(new THREE.CylinderGeometry(0.03, 0.05, 1.2, 6), '#9ca3af', -0.3, 2, 0));
+    const beacon = mesh(new THREE.SphereGeometry(0.14, 12, 8), c, -0.3, 2.65, 0, { emissive: c, emissiveIntensity: 0.6 });
+    g.add(beacon);
+    animators.push((t) => { beacon.material.emissiveIntensity = 0.4 + Math.sin(t * 3) * 0.4; });
+    house(g, 0.9, 0.6, '#fff4e3', c, 0.6);
+  },
+};
+
+// ---------- Islands ----------
+const R = 2.2, H = 0.7, GAP = 1.06;
+const islands = POLICIES.map((p, i) => {
+  const [q, r] = CELLS[i];
+  const color = GROUPS[p.group].color;
+  const g = new THREE.Group();
+  g.position.set(R * GAP * Math.sqrt(3) * (q + r / 2), 0, R * GAP * 1.5 * r);
+  g.userData = { index: i, lift: 0, liftGoal: 0 };
+
+  const base = new THREE.Mesh(
+    new THREE.CylinderGeometry(R, R * 0.92, H, 6),
+    [mat('#c9b99a'), mat(shade(color, 0.72)), mat('#c9b99a')],
+  );
+  base.position.y = H / 2;
+  base.castShadow = base.receiveShadow = true;
+  g.add(base);
+
+  const content = new THREE.Group();
+  content.position.y = H;
+  BUILDERS[p.type](content, p, color);
+  g.add(content);
+  scene.add(g);
+  return g;
+});
+
+// ---------- Labels ----------
+const labelsEl = document.getElementById('labels');
+const labels = POLICIES.map((p, i) => {
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'label';
+  el.innerHTML = `<span class="n">${String(i + 1).padStart(2, '0')}</span>${p.name}`;
+  el.addEventListener('click', () => select(i));
+  labelsEl.appendChild(el);
+  return el;
+});
+const tmp = new THREE.Vector3();
+function updateLabels() {
+  islands.forEach((g, i) => {
+    tmp.set(g.position.x, g.position.y + 2.2, g.position.z).project(camera);
+    const el = labels[i];
+    if (tmp.z > 1) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    const x = (tmp.x * 0.5 + 0.5) * innerWidth, y = (-tmp.y * 0.5 + 0.5) * innerHeight;
+    el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+    el.style.zIndex = String(Math.round((1 - tmp.z) * 10000));
+  });
+}
+
+// ---------- Camera fly ----------
+const HOME_TARGET = new THREE.Vector3(0, 0, 1.5);
+const homeOffset = () => new THREE.Vector3(0, 22, 24).multiplyScalar(camera.aspect < 0.8 ? 1.45 : 1);
+let fly = null;
+function flyTo(target, offset) {
+  fly = { target: target.clone(), pos: target.clone().add(offset) };
+}
+controls.addEventListener('start', () => { fly = null; });
+camera.position.copy(HOME_TARGET).add(homeOffset());
+controls.target.copy(HOME_TARGET);
+
+// ---------- Selection ----------
+const card = document.getElementById('card');
+const cardBody = document.getElementById('card-body');
+let selected = -1;
+
+function select(i) {
+  selected = i;
+  const p = POLICIES[i], grp = GROUPS[p.group];
+  cardBody.innerHTML = `
+    <span class="tag" style="background:${grp.color}">${grp.name}</span>
+    <h2>${String(i + 1).padStart(2, '0')} ${p.name}</h2>
+    <p>${p.summary}</p>
+    <ul>${p.items.map((t) => `<li>${t}</li>`).join('')}</ul>`;
+  card.hidden = false;
+  islands.forEach((g, k) => { g.userData.liftGoal = k === i ? 0.5 : 0; });
+  labels.forEach((el, k) => { el.classList.toggle('dim', k !== i); el.classList.toggle('active', k === i); });
+  const offset = new THREE.Vector3(5, 7, 9).multiplyScalar(camera.aspect < 0.8 ? 1.5 : 1);
+  const target = islands[i].position.clone().add(new THREE.Vector3(0, 1, 0));
+  // Shift the view so the island is not hidden behind the card
+  if (camera.aspect >= 0.8) target.add(new THREE.Vector3(1.8, 0, -1.2));
+  else target.add(new THREE.Vector3(0, -1, 1));
+  flyTo(target, offset);
+}
+
+function deselect() {
+  selected = -1;
+  card.hidden = true;
+  islands.forEach((g) => { g.userData.liftGoal = 0; });
+  labels.forEach((el) => el.classList.remove('dim', 'active'));
+}
+
+document.getElementById('card-close').addEventListener('click', deselect);
+document.getElementById('prev').addEventListener('click', () => select((selected + POLICIES.length - 1) % POLICIES.length));
+document.getElementById('next').addEventListener('click', () => select((selected + 1) % POLICIES.length));
+document.getElementById('home').addEventListener('click', () => { deselect(); flyTo(HOME_TARGET, homeOffset()); });
+addEventListener('keydown', (e) => { if (e.key === 'Escape') deselect(); });
+
+// ---------- Picking (click vs drag) ----------
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let downAt = null, hovered = -1;
+function pick(e) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+  const hit = raycaster.intersectObjects(islands, true)[0];
+  let o = hit?.object;
+  while (o && o.userData.index === undefined) o = o.parent;
+  return o ? o.userData.index : -1;
+}
+renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
+  const i = pick(e);
+  if (i >= 0) select(i);
+});
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (e.pointerType !== 'mouse') return;
+  hovered = pick(e);
+  renderer.domElement.style.cursor = hovered >= 0 ? 'pointer' : '';
+});
+
+// ---------- Loop ----------
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  if (!reduced) animators.forEach((fn) => fn(t, dt));
+  islands.forEach((g, i) => {
+    const u = g.userData;
+    const goal = u.liftGoal + (hovered === i && selected !== i ? 0.15 : 0);
+    u.lift += (goal - u.lift) * Math.min(1, dt * 8);
+    g.position.y = u.lift + (reduced ? 0 : Math.sin(t * 0.8 + i * 1.3) * 0.06);
+  });
+  if (fly) {
+    const k = Math.min(1, dt * 3);
+    controls.target.lerp(fly.target, k);
+    camera.position.lerp(fly.pos, k);
+    if (camera.position.distanceTo(fly.pos) < 0.05) fly = null;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+  updateLabels();
+});
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
