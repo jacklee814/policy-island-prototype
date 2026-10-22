@@ -13,15 +13,22 @@ python3 -m http.server 8000
 # 開啟 http://localhost:8000
 ```
 
-## 分享預覽頁
-
-社群平台抓連結預覽時看不到網址 `#` 後面的部分，所以每項政見與景點都有一個 `share/*.html` 小頁面，帶自己的標題與摘要，打開後會跳回主頁面的對應位置。
+## 由政見資料產生的靜態檔
 
 修改 `index.html` 裡的 `POLICIES` 或 `SPOTS` 後，要重新產生：
 
 ```bash
-python3 tools/build_share_pages.py
+python3 tools/build_static.py
 ```
+
+會更新這些檔案：
+
+- `share/*.html`：每項政見與景點的分享預覽頁。社群平台抓預覽時看不到網址 `#` 後面的部分，所以每項都有自己的頁面帶標題與摘要，打開後跳回主頁面（保留 `utm_*` 參數供 GA4 判斷來源）。
+- `index.html` 裡 `seo:jsonld` 與 `seo:noscript` 標記之間的內容：給搜尋引擎讀的結構化資料與文字版政見。
+- `sitemap.xml`
 
 `og.png` 是共用的 1200×630 預覽圖（全景截圖）。
 
+## 流量統計
+
+使用 Google Analytics 4（`G-5H13CQWF3X`）。除了頁面瀏覽，還記錄 `view_policy`、`view_spot`、`share`、`search`、`filter_category`、`open_index` 事件。
