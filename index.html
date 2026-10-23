@@ -1410,13 +1410,13 @@ const BUILDERS = {
     const gem = mesh(new THREE.OctahedronGeometry(0.22), c, -0.4, 2.0, -0.5, { emissive: c, emissiveIntensity: 0.35, metalness: 0.3, roughness: 0.2 });
     g.add(gem);
     animators.push((t) => { gem.rotation.y = t * 1.2; gem.position.y = 2.0 + Math.sin(t * 1.5) * 0.08; });
-    g.add(mesh(new THREE.BoxGeometry(2.4, 0.04, 0.16), '#6b7280', 0, 0.02, 0.85));
+    g.add(mesh(new THREE.BoxGeometry(1.8, 0.04, 0.16), '#6b7280', 0.1, 0.02, 0.85)); // ends short of the street ring
     const train = new THREE.Group();
     train.add(mesh(rbox(0.5, 0.26, 0.24, 0.05), '#d94f3d', 0, 0.17, 0));
     train.add(mesh(rbox(0.5, 0.26, 0.24, 0.05), '#f2a03d', -0.56, 0.17, 0));
     train.position.z = 0.85;
     g.add(train);
-    animators.push((t) => { train.position.x = Math.sin(t * 0.5) * 0.6 + 0.25; });
+    animators.push((t) => { train.position.x = Math.sin(t * 0.5) * 0.35 + 0.3; });
     // Tea bushes
     for (let i = 0; i < 4; i++) {
       const b = mesh(new THREE.SphereGeometry(0.17, 10, 6), '#4d8f4f', 0.6 + (i % 2) * 0.4, 0.08, 0.15 + Math.floor(i / 2) * 0.3);
@@ -1475,8 +1475,18 @@ const BUILDERS = {
 // ---------- Islands ----------
 const R = 2.2, H = 0.7, GAP = 1.13;
 
-// Running track: a hexagonal ring along each island rim, centered on the people's walk graph
-const PATH_R = R * 0.86, PATH_W = 0.32, PATH_T = 0.04, PATH_TOP = H + 0.05, TRACK_COLOR = '#c96a50';
+// Street ring along each island rim, centred on the people's walk graph. From the rim inward: sidewalk (runners),
+// bike lane (riders), then a one-way road (cars). LANES are perpendicular offsets from the ring's centre line.
+const PATH_R = R * 0.86, PATH_T = 0.04, PATH_TOP = H + 0.05;
+const BAND_W = 0.52; // whole ring, rim to inner edge
+const LANES = {
+  sidewalk: { off: 0.19, w: 0.14, top: 0.012 },
+  curb: { off: 0.115, w: 0.012, top: 0.012 },
+  bike: { off: 0.05, w: 0.12, top: 0.004 },
+  road: { off: -0.135, w: 0.25, top: -0.004 },
+};
+const COS30 = Math.cos(Math.PI / 6);
+const laneCornerR = (off) => PATH_R + off / COS30; // corner radius of the line `off` out from the centre line
 function hexRingGeometry(rMid, width, depth) {
   const d = width / 2 / Math.cos(Math.PI / 6);
   // Shape y maps to world -z after rotateX, so corners land at (sin a, cos a) like the island prism
@@ -1489,8 +1499,27 @@ function hexRingGeometry(rMid, width, depth) {
 }
 // Distance between facing track corners of two neighboring islands, i.e. how long each bridge is
 const BRIDGE_SPAN = Math.sqrt(3) * (R * GAP - PATH_R);
-const trackGeo = hexRingGeometry(PATH_R, PATH_W, PATH_T);
-const laneGeo = hexRingGeometry(PATH_R, 0.025, PATH_T + 0.004);
+// All islands share one set of street geometries; each ring is extruded from the same base height
+const streetGeo = Object.fromEntries(Object.entries(LANES).map(([k, l]) => [k, hexRingGeometry(laneCornerR(l.off), l.w, PATH_T + l.top)]));
+const bikeEdgeGeo = mergeGeometries([0.112, -0.012].map((o) => hexRingGeometry(laneCornerR(o), 0.008, PATH_T + 0.006)));
+// Short pieces laid along every edge of a ring: road centre dashes, sidewalk paving joints
+function alongEdges(off, step, make) {
+  const parts = [], rc = laneCornerR(off);
+  for (let k = 0; k < 6; k++) {
+    const a0 = (k * Math.PI) / 3, a1 = ((k + 1) * Math.PI) / 3;
+    const p0 = new THREE.Vector3(Math.sin(a0) * rc, 0, Math.cos(a0) * rc), p1 = new THREE.Vector3(Math.sin(a1) * rc, 0, Math.cos(a1) * rc);
+    const len = p0.distanceTo(p1), heading = Math.atan2(p1.x - p0.x, p1.z - p0.z);
+    for (let d = step; d < len - step * 0.5; d += step) {
+      const g = make().rotateY(heading);
+      const at = p0.clone().lerp(p1, d / len);
+      parts.push(g.translate(at.x, 0, at.z));
+    }
+  }
+  return mergeGeometries(parts);
+}
+const roadDashGeo = alongEdges(LANES.road.off, 0.2, () => new THREE.BoxGeometry(0.014, PATH_T + 0.001, 0.09).translate(0, (PATH_T + 0.001) / 2, 0));
+const pavingGeo = alongEdges(LANES.sidewalk.off, 0.13, () => new THREE.BoxGeometry(LANES.sidewalk.w * 0.98, PATH_T + 0.0125, 0.006).translate(0, (PATH_T + 0.0125) / 2, 0));
+const STREET_COLORS = { sidewalk: '#e7dfcf', curb: '#b9b2a4', bike: '#5aa874', road: '#4a4e55' };
 const hexToWorld = (q, r) => [R * GAP * Math.sqrt(3) * (q + r / 2), R * GAP * 1.5 * r];
 
 // Taipei: a flat, non-interactive plateau in the middle of the ring
@@ -1501,6 +1530,37 @@ const hexToWorld = (q, r) => [R * GAP * Math.sqrt(3) * (q + r / 2), R * GAP * 1.
   m.receiveShadow = true;
   scene.add(m);
 });
+
+// One small car per island drives its road loop; body, windows and wheels share geometry across all cars
+const CAR_COLORS = ['#e5484d', '#3f7fd0', '#f2a03d', '#f4f1e8', '#3a9b6a', '#7b5cc4', '#2b2f36'];
+const carBodyGeo = rbox(0.11, 0.055, 0.22, 0.02).translate(0, 0.055, 0);
+const carCabinGeo = rbox(0.095, 0.045, 0.11, 0.015).translate(0, 0.1, 0.01);
+const carWheelGeo = mergeGeometries([[-0.055, -0.07], [0.055, -0.07], [-0.055, 0.07], [0.055, 0.07]]
+  .map(([x, z]) => new THREE.CylinderGeometry(0.025, 0.025, 0.02, 10).rotateZ(Math.PI / 2).translate(x, 0.025, z)));
+const carLightGeo = mergeGeometries([-0.035, 0.035].map((x) => new THREE.BoxGeometry(0.02, 0.012, 0.004).translate(x, 0.06, 0.111)));
+function addCar(g, i) {
+  const car = new THREE.Group();
+  [[carBodyGeo, CAR_COLORS[i % CAR_COLORS.length], {}], [carCabinGeo, '#bcd9ea', { roughness: 0.25, metalness: 0.2 }],
+    [carWheelGeo, '#1f2328', {}], [carLightGeo, '#fff4c2', { emissive: '#ffe08a', emissiveIntensity: 0.5 }]]
+    .forEach(([geo, color, extra]) => {
+      const m = new THREE.Mesh(geo, mat(color, extra));
+      m.castShadow = true;
+      car.add(m);
+    });
+  car.position.y = PATH_TOP + LANES.road.top;
+  g.add(car);
+  const rc = laneCornerR(LANES.road.off);
+  const corner = (k) => [Math.sin((k * Math.PI) / 3) * rc, Math.cos((k * Math.PI) / 3) * rc];
+  let s = (i * 1.7) % 6; // position along the loop, in edges
+  animators.push((t, dt) => {
+    s = (s + dt * 0.25) % 6; // one edge every four seconds
+    const k = Math.floor(s), f = s - k;
+    const [x0, z0] = corner(k), [x1, z1] = corner(k + 1);
+    car.position.x = x0 + (x1 - x0) * f;
+    car.position.z = z0 + (z1 - z0) * f;
+    car.rotation.y = Math.atan2(x1 - x0, z1 - z0);
+  });
+}
 
 const islands = POLICIES.map((p, i) => {
   const color = GROUPS[p.group].color;
@@ -1522,13 +1582,16 @@ const islands = POLICIES.map((p, i) => {
   BUILDERS[p.type](content, p, color);
   g.add(content);
 
-  const track = new THREE.Mesh(trackGeo, mat(TRACK_COLOR));
-  track.position.y = PATH_TOP - PATH_T;
-  track.receiveShadow = true;
-  g.add(track);
-  const lane = new THREE.Mesh(laneGeo, mat('#fff7ea'));
-  lane.position.y = PATH_TOP - PATH_T;
-  g.add(lane);
+  const street = new THREE.Group();
+  street.position.y = PATH_TOP - PATH_T;
+  Object.keys(LANES).forEach((k) => {
+    const m = new THREE.Mesh(streetGeo[k], mat(STREET_COLORS[k]));
+    m.receiveShadow = true;
+    street.add(m);
+  });
+  street.add(new THREE.Mesh(bikeEdgeGeo, mat('#f4f1e8')), new THREE.Mesh(roadDashGeo, mat('#f4f1e8')), new THREE.Mesh(pavingGeo, mat('#cfc6b4')));
+  g.add(street);
+  addCar(g, i);
   scene.add(g);
   return g;
 });
@@ -1935,7 +1998,11 @@ const nodes = [];
 islands.forEach((g, i) => {
   for (let k = 0; k < 6; k++) {
     const a = (k * Math.PI) / 3;
-    nodes.push({ island: i, x: g.position.x + Math.sin(a) * R * 0.86, z: g.position.z + Math.cos(a) * R * 0.86, links: [] });
+    const at = (off) => ({ x: g.position.x + Math.sin(a) * laneCornerR(off), z: g.position.z + Math.cos(a) * laneCornerR(off) });
+    const run = at(LANES.sidewalk.off), ride = at(LANES.bike.off);
+    // `bridge` sits between the two lanes, so a bridge deck centred on it carries both
+    nodes.push({ island: i, x: g.position.x + Math.sin(a) * PATH_R, z: g.position.z + Math.cos(a) * PATH_R, links: [],
+      lanes: { run, ride, bridge: { x: (run.x + ride.x) / 2, z: (run.z + ride.z) / 2 } } });
   }
 });
 nodes.forEach((n, idx) => {
@@ -2021,7 +2088,8 @@ const people = PEOPLE.map((p, i) => {
 function stepPerson(w, dt) {
   if (w.wait > 0) w.wait -= dt;
   else {
-    const a = nodes[w.from], b = nodes[w.to];
+    const lane = w.ride ? 'ride' : 'run';
+    const a = nodes[w.from].lanes[lane], b = nodes[w.to].lanes[lane];
     const speed = w.ride ? RIDE_SPEED : RUN_SPEED;
     w.t += (dt * speed) / Math.max(0.01, Math.hypot(b.x - a.x, b.z - a.z));
     w.phase += dt * (w.ride ? 9 : 16);
@@ -2034,11 +2102,13 @@ function stepPerson(w, dt) {
     }
   }
   const running = w.wait <= 0 && dt > 0;
-  const a = nodes[w.from], b = nodes[w.to];
-  const lift = THREE.MathUtils.lerp(islands[a.island].position.y, islands[b.island].position.y, w.t);
+  const lane = w.ride ? 'ride' : 'run';
+  const na = nodes[w.from], nb = nodes[w.to], a = na.lanes[lane], b = nb.lanes[lane];
+  const lift = THREE.MathUtils.lerp(islands[na.island].position.y, islands[nb.island].position.y, w.t);
+  const surface = na.island === nb.island ? LANES[w.ride ? 'bike' : 'sidewalk'].top : 0; // on a bridge the deck is at PATH_TOP
   w.g.position.set(
     THREE.MathUtils.lerp(a.x, b.x, w.t),
-    PATH_TOP + lift + (running && !w.ride ? Math.abs(Math.sin(w.phase)) * 0.05 : 0),
+    PATH_TOP + surface + lift + (running && !w.ride ? Math.abs(Math.sin(w.phase)) * 0.05 : 0),
     THREE.MathUtils.lerp(a.z, b.z, w.t),
   );
   w.g.rotation.y = Math.atan2(b.x - a.x, b.z - a.z);
@@ -2059,24 +2129,103 @@ function stepPerson(w, dt) {
   w.arms[1].rotation.x = swing;
 }
 
-// Short bridges join the tracks of neighboring islands; they follow each island's bob and lift every frame
-const bridgeGeo = new THREE.BoxGeometry(PATH_W, PATH_T, 1);
-const bridges = [];
+// Bridges join the street rings of neighbouring islands. Each kind is built once in a local frame (deck top at y = 0,
+// running from z = 0 to z = BRIDGE_L) and shared; every frame each bridge is placed between its two ends, which
+// follow the islands' bob and lift. Both bridges between the same two islands are the same kind.
+const BRIDGE_W = 0.34, BRIDGE_PAD = 0.12; // deck width; how far the deck reaches onto each sidewalk
+const bridgePairs = [];
 nodes.forEach((n, i) => n.links.forEach((j) => {
-  if (j <= i || nodes[j].island === n.island) return;
-  const m = new THREE.Mesh(bridgeGeo, mat(TRACK_COLOR));
-  m.castShadow = m.receiveShadow = true;
-  scene.add(m);
-  bridges.push({ m, a: n, b: nodes[j] });
+  if (j > i && nodes[j].island !== n.island) bridgePairs.push([n, nodes[j]]);
 }));
+const BRIDGE_L = bridgePairs.length
+  ? Math.hypot(bridgePairs[0][0].lanes.bridge.x - bridgePairs[0][1].lanes.bridge.x, bridgePairs[0][0].lanes.bridge.z - bridgePairs[0][1].lanes.bridge.z)
+  : 1;
+
+function boxAt(w, h, d, x, y, z) {
+  return new THREE.BoxGeometry(w, h, d).translate(x, y, z);
+}
+function rodBetween(a, b, r) {
+  const len = a.distanceTo(b);
+  const geo = new THREE.CylinderGeometry(r, r, len, 6).translate(0, len / 2, 0);
+  geo.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()));
+  return geo.translate(a.x, a.y, a.z);
+}
+const BRIDGE_KINDS = {
+  // Wooden plank bridge: dark stringers, posts and handrails under light planks
+  wood: (() => {
+    const L = BRIDGE_L, dark = [], light = [];
+    [-1, 1].forEach((side) => {
+      dark.push(boxAt(0.03, 0.04, L + BRIDGE_PAD * 2, side * 0.13, -0.04, L / 2));
+      for (let z = -BRIDGE_PAD + 0.03; z <= L + BRIDGE_PAD; z += 0.28) dark.push(boxAt(0.022, 0.14, 0.022, side * 0.165, 0.07, z));
+      dark.push(boxAt(0.024, 0.02, L + BRIDGE_PAD * 2 - 0.04, side * 0.165, 0.14, L / 2));
+    });
+    for (let z = -BRIDGE_PAD + 0.04; z < L + BRIDGE_PAD; z += 0.075) light.push(boxAt(BRIDGE_W, 0.02, 0.062, 0, -0.01, z));
+    return [[mergeGeometries(dark), '#6b4a2b'], [mergeGeometries(light), '#c4935f']];
+  })(),
+  // Suspension bridge: red towers at both ends, main cables sagging between them, hangers down to a steel deck
+  suspension: (() => {
+    const L = BRIDGE_L, TOWER = 0.46, steel = [], red = [], cable = [];
+    steel.push(boxAt(BRIDGE_W, 0.025, L + BRIDGE_PAD * 2, 0, -0.0125, L / 2));
+    [-1, 1].forEach((side) => steel.push(boxAt(0.02, 0.05, L + BRIDGE_PAD * 2, side * (BRIDGE_W / 2 - 0.01), 0.01, L / 2)));
+    [0.04, L - 0.04].forEach((z) => {
+      [-1, 1].forEach((side) => red.push(boxAt(0.035, TOWER, 0.035, side * 0.19, TOWER / 2 - 0.03, z)));
+      red.push(boxAt(0.42, 0.035, 0.04, 0, TOWER - 0.03, z), boxAt(0.42, 0.025, 0.035, 0, TOWER * 0.55, z));
+    });
+    [-1, 1].forEach((side) => {
+      const x = side * 0.19, top = TOWER - 0.05, low = 0.1;
+      const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(x, top, 0.04), new THREE.Vector3(x, 2 * low - top, L / 2), new THREE.Vector3(x, top, L - 0.04));
+      cable.push(new THREE.TubeGeometry(curve, 24, 0.008, 5, false));
+      // Back stays from each tower top down to the deck end
+      cable.push(rodBetween(new THREE.Vector3(x, top, 0.04), new THREE.Vector3(x, 0.02, -BRIDGE_PAD + 0.02), 0.006));
+      cable.push(rodBetween(new THREE.Vector3(x, top, L - 0.04), new THREE.Vector3(x, 0.02, L + BRIDGE_PAD - 0.02), 0.006));
+      for (let k = 1; k < 8; k++) {
+        const p = curve.getPoint(k / 8);
+        if (p.y > 0.06) cable.push(rodBetween(new THREE.Vector3(x, 0.03, p.z), p, 0.003));
+      }
+    });
+    // TubeGeometry is indexed with the same attributes as the rods, so all of them merge
+    return [[mergeGeometries(steel), '#9aa3ad'], [mergeGeometries(red), '#d94f3d'], [mergeGeometries(cable), '#3a3f47']];
+  })(),
+  // Stone arch: a solid stone body with an arched opening underneath, a paved deck and low parapets
+  arch: (() => {
+    const L = BRIDGE_L, BODY = 0.24, shape = new THREE.Shape();
+    shape.moveTo(-BRIDGE_PAD, 0);
+    shape.lineTo(L + BRIDGE_PAD, 0);
+    shape.lineTo(L + BRIDGE_PAD, -BODY);
+    shape.lineTo(L - 0.05, -BODY);
+    shape.absellipse(L / 2, -BODY, L / 2 - 0.05, BODY * 0.72, 0, Math.PI, false);
+    shape.lineTo(-BRIDGE_PAD, -BODY);
+    shape.lineTo(-BRIDGE_PAD, 0);
+    // Shape x runs along the bridge: extrude across the width, then turn x onto z
+    const stone = new THREE.ExtrudeGeometry(shape, { depth: BRIDGE_W - 0.02, bevelEnabled: false, curveSegments: 16 })
+      .translate(0, 0, -(BRIDGE_W - 0.02) / 2).rotateY(-Math.PI / 2); // already non-indexed, like the boxes
+    const deck = [boxAt(BRIDGE_W - 0.04, 0.012, L + BRIDGE_PAD * 2, 0, 0.006, L / 2)];
+    const wall = [-1, 1].map((side) => boxAt(0.035, 0.07, L + BRIDGE_PAD * 2 - 0.06, side * (BRIDGE_W / 2 - 0.0175), 0.035, L / 2));
+    return [[stone, '#b9b2a6'], [mergeGeometries(deck), '#9a9488'], [mergeGeometries(wall), '#d8d1c3']];
+  })(),
+};
+const KIND_ORDER = ['wood', 'suspension', 'arch'];
+const pairKind = new Map();
+const bridges = bridgePairs.map(([a, b]) => {
+  const key = [a.island, b.island].sort((x, y) => x - y).join('-');
+  if (!pairKind.has(key)) pairKind.set(key, KIND_ORDER[pairKind.size % KIND_ORDER.length]);
+  const group = new THREE.Group();
+  BRIDGE_KINDS[pairKind.get(key)].forEach(([geo, color]) => {
+    const m = new THREE.Mesh(geo, mat(color));
+    m.castShadow = m.receiveShadow = true;
+    group.add(m);
+  });
+  scene.add(group);
+  return { group, a, b };
+});
 const endA = new THREE.Vector3(), endB = new THREE.Vector3();
 function updateBridges() {
-  bridges.forEach(({ m, a, b }) => {
-    endA.set(a.x, islands[a.island].position.y + PATH_TOP - PATH_T / 2, a.z);
-    endB.set(b.x, islands[b.island].position.y + PATH_TOP - PATH_T / 2, b.z);
-    m.position.lerpVectors(endA, endB, 0.5);
-    m.scale.z = endA.distanceTo(endB) + PATH_W; // overlap onto both rims
-    m.lookAt(endB);
+  bridges.forEach(({ group, a, b }) => {
+    endA.set(a.lanes.bridge.x, islands[a.island].position.y + PATH_TOP, a.lanes.bridge.z);
+    endB.set(b.lanes.bridge.x, islands[b.island].position.y + PATH_TOP, b.lanes.bridge.z);
+    group.position.copy(endA);
+    group.lookAt(endB); // +z toward the far end
+    group.scale.z = endA.distanceTo(endB) / BRIDGE_L;
   });
 }
 
