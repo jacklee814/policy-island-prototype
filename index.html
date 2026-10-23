@@ -361,6 +361,8 @@
   /* Label level of detail: hide runner names when zoomed out, shorten island names on narrow screens */
   #labels.far .label.person { display: none; }
   #labels.compact .label:not(.active):not(.spot) .name { display: none; }
+  .label.tight .name { display: none; }
+  .label.tight .n { margin-right: 0; }
   .label.focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(224, 102, 61, .3); }
   #labels.compact .label:not(.active):not(.spot) .n { margin-right: 0; }
   #index {
@@ -1736,6 +1738,38 @@ function placeLabel(el, pos) {
   const x = (tmp.x * 0.5 + 0.5) * innerWidth, y = (-tmp.y * 0.5 + 0.5) * innerHeight;
   el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
   el.style.zIndex = String(Math.round((1 - tmp.z) * 10000));
+  el.placed = { x, y, depth: tmp.z };
+}
+
+// Island labels that would overlap a nearer one drop to their number. Widths are measured once per state and
+// cached, so this costs no layout work per frame.
+function declutterLabels() {
+  const boxes = [];
+  labels
+    .map((el, i) => ({ el, i }))
+    .filter(({ el }) => el.style.display !== 'none' && el.placed)
+    .sort((a, b) => a.el.placed.depth - b.el.placed.depth) // nearest first keeps its name
+    .forEach(({ el }) => {
+      el.widths ??= {};
+      const fits = (tight) => {
+        // Width depends on the zoom mode (compact shows numbers only) and the phone/desktop font size
+        const key = `${labelsEl.classList.contains('compact')}|${innerWidth <= 640}|${tight}`;
+        if (el.widths[key] === undefined) {
+          const was = el.classList.contains('tight');
+          el.classList.toggle('tight', tight);
+          el.widths[key] = [el.offsetWidth, el.offsetHeight];
+          el.classList.toggle('tight', was);
+        }
+        const [w, h] = el.widths[key], { x, y } = el.placed;
+        const box = [x - w / 2, y - h, x + w / 2, y];
+        const clear = !boxes.some((o) => box[0] < o[2] - 1 && o[0] < box[2] - 1 && box[1] < o[3] - 1 && o[1] < box[3] - 1);
+        return clear ? box : null;
+      };
+      const tight = !el.classList.contains('active') && !fits(false);
+      el.classList.toggle('tight', tight);
+      const box = fits(tight);
+      if (box) boxes.push(box);
+    });
 }
 
 const labels = POLICIES.map((p, i) => {
@@ -1759,6 +1793,7 @@ function updateLabels() {
   islands.forEach((g, i) => placeLabel(labels[i], labelPos.set(g.position.x, g.position.y + 2.4, g.position.z)));
   placeLabel(taipeiLabel, TAIPEI_POS);
   spots.forEach((s) => placeLabel(s.label, labelPos.set(s.g.position.x, 2.3, s.g.position.z)));
+  declutterLabels();
 }
 
 const legendEl = document.getElementById('legend');
@@ -2376,9 +2411,9 @@ const HOME_TARGET = new THREE.Vector3(0, 0, 0);
 const homeOffset = () => (camera.aspect < 0.8 ? new THREE.Vector3(0, 92, 48) : new THREE.Vector3(0, 37, 40));
 // The ring of policy islands filling the screen, Taipei in the middle
 const ISLANDS_TARGET = new THREE.Vector3(0, 0, -1.5);
-const islandsOffset = () => (camera.aspect < 0.8 ? new THREE.Vector3(0, 60, 17) : new THREE.Vector3(0, 21, 21));
+const islandsOffset = () => (camera.aspect < 0.8 ? new THREE.Vector3(0, 52, 40) : new THREE.Vector3(0, 21, 21));
 // On phones the bottom rail covers the lower part of the screen, so the ring is aimed a little south to sit above it
-const islandsTarget = () => (camera.aspect < 0.8 ? new THREE.Vector3(0, 0, 3.6) : ISLANDS_TARGET.clone());
+const islandsTarget = () => (camera.aspect < 0.8 ? new THREE.Vector3(0, 0, 2.6) : ISLANDS_TARGET.clone());
 let fly = null;
 function flyTo(target, offset) {
   fly = { target: target.clone(), pos: target.clone().add(offset) };
