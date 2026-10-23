@@ -245,7 +245,7 @@
     box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
     transition: opacity .25s;
   }
-  .label .n { color: var(--accent); margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .label .n { color: #b8492a; margin-right: 6px; font-variant-numeric: tabular-nums; }
   .label.dim { opacity: .3; }
   .label.active { border-color: var(--accent); }
   .label.person { font-size: 12px; padding: 2px 8px; }
@@ -286,10 +286,8 @@
   header button { pointer-events: auto; flex: none; }
   .actions { display: flex; gap: 8px; flex: none; }
   #follow-toggle { display: inline-flex; align-items: center; gap: 4px; }
-  @media (max-width: 400px) {
-    #follow-toggle .txt { display: none; }
-    #follow-toggle .cam { display: block !important; width: 18px; height: 18px; }
-  }
+  #menu-toggle { display: none; }
+  #rail { display: none; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .legend button {
     pointer-events: auto; display: inline-flex; align-items: center; gap: 5px; flex: none;
@@ -363,6 +361,7 @@
   /* Label level of detail: hide runner names when zoomed out, shorten island names on narrow screens */
   #labels.far .label.person { display: none; }
   #labels.compact .label:not(.active):not(.spot) .name { display: none; }
+  .label.focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(224, 102, 61, .3); }
   #labels.compact .label:not(.active):not(.spot) .n { margin-right: 0; }
   #index {
     position: fixed; left: 16px; top: 116px; bottom: 16px; width: 300px; z-index: 5;
@@ -466,19 +465,58 @@
   .label.spot::before { content: "◆"; margin-right: 5px; font-size: 10px; color: #99f6e4; }
   footer { position: fixed; left: 16px; bottom: 12px; font-size: 12px; color: var(--muted); }
   @media (max-width: 640px) {
-    /* Three rows: title + buttons, subtitle, legend chips (each at full width) */
-    header { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "title actions" "sub sub" "legend legend"; gap: 6px 8px; }
+    /* Phone header: title + one menu button. The menu opens the view buttons and the category filters in place. */
+    header {
+      display: grid; grid-template-columns: 1fr auto; grid-template-areas: "title menu" "sub sub" "actions actions" "legend legend";
+      gap: 6px 8px; padding: 0; border-radius: 16px; transition: background .2s, box-shadow .2s;
+    }
     header > div:first-child { display: contents; }
     header h1 { grid-area: title; align-self: center; font-size: 18px; }
     header p { grid-area: sub; margin: 0; font-size: 12px; }
-    header .actions { grid-area: actions; gap: 6px; }
-    header .actions button { padding: 7px 10px; font-size: 14px; }
-    #follow-toggle .cam { display: none; }
-    .legend {
-      grid-area: legend; margin: 0; pointer-events: auto;
-      flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+    #menu-toggle { display: inline-flex; grid-area: menu; pointer-events: auto; align-items: center; gap: 6px; padding: 7px 12px; font-size: 14px; }
+    header .actions, header .legend { display: none; }
+    header.menu-open {
+      left: 8px; right: 8px; top: 8px; padding: 8px 8px 12px; background: rgba(255, 253, 248, .97);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .15); pointer-events: auto;
     }
-    .scrim { height: 140px; }
+    header.menu-open .actions { grid-area: actions; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+    header.menu-open .actions button { padding: 10px; font-size: 15px; justify-content: center; }
+    header.menu-open .legend { grid-area: legend; display: flex; flex-wrap: wrap; margin: 4px 0 0; pointer-events: auto; }
+    .scrim { height: 96px; }
+    /* Bottom rail of policy cards: the main way to browse on a phone, within thumb reach */
+    #rail {
+      display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 4;
+      padding: 10px 0 calc(12px + env(safe-area-inset-bottom));
+      background: linear-gradient(rgba(227, 239, 242, 0), rgba(227, 239, 242, .9) 30%);
+      transition: transform .25s, opacity .25s;
+    }
+    body.rail-off #rail { transform: translateY(110%); opacity: 0; pointer-events: none; }
+    .rail-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0 16px 6px; font-size: 13px; color: var(--muted); }
+    .rail-head b { color: var(--ink); font-size: 14px; }
+    .rail-track {
+      display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+      padding: 2px 16px 4px; scroll-padding-left: 16px;
+    }
+    .rail-track::-webkit-scrollbar { display: none; }
+    .rail-track button {
+      flex: none; width: 168px; height: 104px; scroll-snap-align: start; text-align: left; padding: 10px 12px;
+      border-radius: 14px; background: var(--card); box-shadow: 0 4px 14px rgba(0, 0, 0, .1);
+      display: flex; flex-direction: column; gap: 4px; overflow: hidden;
+    }
+    .rail-track button[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(224, 102, 61, .35), 0 4px 14px rgba(0, 0, 0, .1); }
+    .rail-track .t { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 15px; }
+    .rail-track .t .n { color: #b8492a; font-size: 12px; font-variant-numeric: tabular-nums; }
+    .rail-track .k {
+      font-size: 12.5px; line-height: 1.45; color: var(--muted);
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .rail-track .finder { background: #0f766e; color: #fff; border-color: #0f766e; }
+    .rail-track .finder .k { color: #d5f3ee; }
+    body:not(.rail-off) #toast { bottom: calc(160px + env(safe-area-inset-bottom)); }
+    /* Zoomed out on a phone, landmarks shrink to a dot so the policy islands stay the focus */
+    #labels.spot-dots .label.spot { padding: 3px 6px; font-size: 10px; }
+    #labels.spot-dots .label.spot .name { display: none; }
+    #labels.spot-dots .label.spot::before { margin-right: 0; }
     /* Floating bottom card; the top of the screen stays free for the selected island */
     #card {
       left: 12px; right: 12px; top: auto; width: auto; z-index: 6; padding: 16px;
@@ -611,13 +649,18 @@
     <p>整理自蘇巧慧 2026 新北市長競選網站的 14 項政見</p>
     <div class="legend" id="legend" role="group" aria-label="依分類篩選"></div>
   </div>
-  <div class="actions">
+  <button id="menu-toggle" type="button" aria-expanded="false" aria-controls="header-actions" aria-label="開啟選單">☰ 選單</button>
+  <div class="actions" id="header-actions">
     <button id="index-toggle" type="button" aria-expanded="false" aria-controls="index">☰ 清單</button>
     <button id="follow-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="follow-menu" aria-label="跟拍"><svg class="gicon cam" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="4.5" width="9" height="7" rx="1.5"/><path d="m10.5 7 4-2.2v6.4l-4-2.2"/></svg><span class="txt">跟拍</span></button>
     <button id="islands-view" type="button">政見島</button>
     <button id="home" type="button">全景</button>
   </div>
 </header>
+<nav id="rail" aria-label="政見卡片">
+  <div class="rail-head"><b>14 項政見</b><span>左右滑動，點卡片看內容</span></div>
+  <div class="rail-track" id="rail-track"></div>
+</nav>
 <aside id="index" hidden aria-label="政見與景點清單">
   <div class="index-head">
     <input id="search" type="search" placeholder="搜尋政見、景點、關鍵字…" aria-label="搜尋政見與景點" autocomplete="off">
@@ -1958,7 +2001,8 @@ const spots = SPOTS.map((s, k) => {
   const label = document.createElement('button');
   label.type = 'button';
   label.className = 'label spot';
-  label.textContent = s.name;
+  label.innerHTML = `<span class="name">${s.name}</span>`;
+  label.setAttribute('aria-label', s.name);
   label.addEventListener('click', () => selectSpot(k));
   labelsEl.appendChild(label);
   return { g, label };
@@ -2322,7 +2366,9 @@ const HOME_TARGET = new THREE.Vector3(0, 0, 0);
 const homeOffset = () => (camera.aspect < 0.8 ? new THREE.Vector3(0, 92, 48) : new THREE.Vector3(0, 37, 40));
 // The ring of policy islands filling the screen, Taipei in the middle
 const ISLANDS_TARGET = new THREE.Vector3(0, 0, -1.5);
-const islandsOffset = () => (camera.aspect < 0.8 ? new THREE.Vector3(0, 62, 22) : new THREE.Vector3(0, 21, 21));
+const islandsOffset = () => (camera.aspect < 0.8 ? new THREE.Vector3(0, 60, 17) : new THREE.Vector3(0, 21, 21));
+// On phones the bottom rail covers the lower part of the screen, so the ring is aimed a little south to sit above it
+const islandsTarget = () => (camera.aspect < 0.8 ? new THREE.Vector3(0, 0, 3.6) : ISLANDS_TARGET.clone());
 let fly = null;
 function flyTo(target, offset) {
   fly = { target: target.clone(), pos: target.clone().add(offset) };
@@ -2336,8 +2382,12 @@ controls.addEventListener('start', () => {
   fly = null;
   followZoom = false; // the person drags: keep following, but stop pulling the camera to the preset distance
 });
-camera.position.copy(HOME_TARGET).add(homeOffset());
-controls.target.copy(HOME_TARGET);
+// Phones open on the policy islands; the full panorama stays one tap away in the menu
+if (camera.aspect < 0.8) {
+  camera.position.copy(islandsTarget()).add(islandsOffset());
+  controls.target.copy(islandsTarget());
+} else camera.position.copy(HOME_TARGET).add(homeOffset());
+if (camera.aspect >= 0.8) controls.target.copy(HOME_TARGET);
 
 // ---------- Selection ----------
 const card = document.getElementById('card');
@@ -2555,7 +2605,60 @@ document.getElementById('card-close').addEventListener('click', deselect);
 prevBtn.addEventListener('click', () => step(-1));
 nextBtn.addEventListener('click', () => step(1));
 document.getElementById('home').addEventListener('click', () => { stopFollow(); deselect(); flyTo(HOME_TARGET, homeOffset()); });
-document.getElementById('islands-view').addEventListener('click', () => { stopFollow(); deselect(); flyTo(ISLANDS_TARGET, islandsOffset()); });
+document.getElementById('islands-view').addEventListener('click', () => { stopFollow(); deselect(); flyTo(islandsTarget(), islandsOffset()); });
+
+// ---------- Phone menu: the view buttons and category filters fold into one button ----------
+const headerEl = document.querySelector('header');
+const menuToggle = document.getElementById('menu-toggle');
+function toggleMenu(open = !headerEl.classList.contains('menu-open')) {
+  headerEl.classList.toggle('menu-open', open);
+  menuToggle.setAttribute('aria-expanded', String(open));
+  menuToggle.textContent = open ? '✕ 關閉' : '☰ 選單';
+}
+menuToggle.addEventListener('click', () => toggleMenu());
+// Any choice in the menu closes it (the follow picker opens its own list)
+document.getElementById('header-actions').addEventListener('click', (e) => {
+  if (e.target.closest('button') && !e.target.closest('#follow-toggle')) toggleMenu(false);
+});
+legendEl.addEventListener('click', () => { if (menuToggle.offsetParent) toggleMenu(false); });
+
+// ---------- Phone rail: swipeable policy cards; the card in view lights up its island ----------
+const railTrack = document.getElementById('rail-track');
+railTrack.innerHTML = `<button type="button" class="finder" data-finder-card><span class="t">✦ 找我的政見</span><span class="k">選身分或住的區，直接列出跟你有關的政見</span></button>`
+  + POLICIES.map((p, i) => `<button type="button" data-i="${i}">
+      <span class="t"><span class="n">${String(i + 1).padStart(2, '0')}</span><span style="color:${readableBg(GROUPS[p.group].color)};display:inline-flex">${groupIcon(p.group)}</span>${p.short}</span>
+      <span class="k">${keyPointOf(p)}</span>
+    </button>`).join('');
+let railFocus = -1;
+function updateRailFocus() {
+  const cards = [...railTrack.querySelectorAll('button[data-i]')];
+  const left = railTrack.getBoundingClientRect().left + 16;
+  let best = -1, bestDist = Infinity;
+  cards.forEach((b) => {
+    const d = Math.abs(b.getBoundingClientRect().left - left);
+    if (d < bestDist) [best, bestDist] = [Number(b.dataset.i), d];
+  });
+  // Until the person scrolls past the finder card, no island is singled out
+  railFocus = railTrack.scrollLeft < 60 ? -1 : best;
+  cards.forEach((b) => b.setAttribute('aria-current', String(Number(b.dataset.i) === railFocus)));
+  labels.forEach((el, k) => el.classList.toggle('focus', k === railFocus));
+}
+let railTick = 0;
+railTrack.addEventListener('scroll', () => {
+  cancelAnimationFrame(railTick);
+  railTick = requestAnimationFrame(updateRailFocus);
+}, { passive: true });
+railTrack.addEventListener('click', (e) => {
+  if (e.target.closest('[data-finder-card]')) {
+    toggleIndex(true);
+    setTab('persona');
+    return;
+  }
+  const b = e.target.closest('button[data-i]');
+  if (!b) return;
+  track('rail_select', { policy_name: POLICIES[Number(b.dataset.i)].short });
+  select(Number(b.dataset.i));
+});
 
 // ---------- Follow cam: the camera tracks one of the people around the track ----------
 const followMenu = document.getElementById('follow-menu');
@@ -3124,7 +3227,7 @@ function showFirstHint() {
     // Storage blocked (private mode): treat as a first visit
   }
   if (!seenHint) {
-    showToast(`點島看政見 · ${coarsePointer ? '拖曳旋轉、雙指縮放' : '拖曳旋轉、滾輪縮放'} · ☰ 清單可搜尋`, 6000);
+    showToast(camera.aspect < 0.8 ? '滑動下方卡片或點島看政見 · 雙指可縮放' : `點島看政見 · ${coarsePointer ? '拖曳旋轉、雙指縮放' : '拖曳旋轉、滾輪縮放'} · ☰ 清單可搜尋`, 6000);
   } else if (latestRelease && seenRelease < latestRelease.date) {
     const [, m, d] = latestRelease.date.split('-').map(Number);
     showToast(`${m}/${d} 更新：${latestRelease.title}`, 8000);
@@ -3584,7 +3687,7 @@ renderer.setAnimationLoop(() => {
   if (!reduced) animators.forEach((fn) => fn(sceneT, sceneDt));
   islands.forEach((g, i) => {
     const u = g.userData;
-    const goal = u.liftGoal + (hovered === i && selected !== i ? 0.15 : 0);
+    const goal = u.liftGoal + ((hovered === i || railFocus === i) && selected !== i ? 0.2 : 0);
     u.lift += (goal - u.lift) * Math.min(1, dt * 8);
     g.position.y = u.lift + (reduced ? 0 : Math.sin(t * 0.8 + i * 1.3) * 0.06);
   });
@@ -3602,7 +3705,10 @@ renderer.setAnimationLoop(() => {
   scene.fog.near = viewDist + 15;
   scene.fog.far = viewDist + 110;
   labelsEl.classList.toggle('far', viewDist > 32);
-  labelsEl.classList.toggle('compact', camera.aspect < 0.8 && viewDist > 60);
+  labelsEl.classList.toggle('compact', camera.aspect < 0.8 && viewDist > 75);
+  labelsEl.classList.toggle('spot-dots', camera.aspect < 0.8 && viewDist > 30);
+  // The rail steps aside for the card, the index panel, the follow bar and the open menu
+  document.body.classList.toggle('rail-off', !card.hidden || !indexEl.hidden || following >= 0 || headerEl.classList.contains('menu-open'));
   renderer.render(scene, camera);
   updateLabels();
   updatePersonLabels();
