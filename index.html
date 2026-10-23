@@ -664,7 +664,7 @@
   <button id="menu-toggle" type="button" aria-expanded="false" aria-controls="header-actions" aria-label="開啟選單">☰ 選單</button>
   <div class="actions" id="header-actions">
     <button id="index-toggle" type="button" aria-expanded="false" aria-controls="index">☰ 清單</button>
-    <button id="follow-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="follow-menu" aria-label="跟拍"><svg class="gicon cam" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="4.5" width="9" height="7" rx="1.5"/><path d="m10.5 7 4-2.2v6.4l-4-2.2"/></svg><span class="txt">跟拍</span></button>
+    <button id="follow-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="follow-menu" aria-label="追隨"><svg class="gicon cam" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="4.5" width="9" height="7" rx="1.5"/><path d="m10.5 7 4-2.2v6.4l-4-2.2"/></svg><span class="txt">追隨</span></button>
     <button id="islands-view" type="button">政見島</button>
     <button id="home" type="button">全景</button>
   </div>
@@ -689,12 +689,12 @@
   <p class="index-note"><a href="policy/">文字版政見一覽</a> · <a href="updates/">更新紀錄</a> · <a href="about/">關於本站</a> · 非官方整理，以 <a href="https://chiao.tw/policies" target="_blank" rel="noopener">官方網站</a> 為準 · 本站使用 Google Analytics 統計瀏覽情形</p>
 </aside>
 <div id="toast" role="status" hidden></div>
-<div id="follow-menu" role="menu" aria-label="選擇要跟拍的人物" hidden></div>
+<div id="follow-menu" role="menu" aria-label="選擇要追隨的人物" hidden></div>
 <div id="follow-bar" hidden>
   <button id="follow-prev" type="button" aria-label="上一個人物">‹</button>
   <span class="name" id="follow-name" aria-live="polite"></span>
   <button id="follow-next" type="button" aria-label="下一個人物">›</button>
-  <button id="follow-stop" type="button">停止跟拍</button>
+  <button id="follow-stop" type="button">停止追隨</button>
 </div>
 <div id="story" hidden role="dialog" aria-modal="true" aria-labelledby="story-title">
   <div class="story-box">
@@ -2267,7 +2267,7 @@ const people = PEOPLE.map((p, i) => {
   label.type = 'button';
   label.className = 'label person';
   label.innerHTML = `<i style="background:${p.shirt}"></i>${p.name}`;
-  label.setAttribute('aria-label', `跟拍 ${p.name}`);
+  label.setAttribute('aria-label', `追隨 ${p.name}`);
   label.addEventListener('click', () => startFollow(i));
   labelsEl.appendChild(label);
   return { ...makePerson(p), label, from, to: nodes[from].links[0], t: 0, wait: i * 0.4, phase: 0 };
@@ -2735,7 +2735,7 @@ let following = -1, followZoom = false;
 const followOffset = () => (camera.aspect < 0.8 ? v3(0, 5, 6.5) : v3(3, 3.2, 4.4));
 const followGoal = new THREE.Vector3(), followStep = new THREE.Vector3(), followArm = new THREE.Vector3();
 
-followMenu.innerHTML = '<p class="title">選擇要跟拍的人物</p>' + PEOPLE.map((p, i) =>
+followMenu.innerHTML = '<p class="title">選擇要追隨的人物</p>' + PEOPLE.map((p, i) =>
   `<button type="button" role="menuitem" data-i="${i}"><i style="background:${p.shirt}"></i>${p.name}${p.ride ? '<span class="ride">騎車</span>' : ''}</button>`).join('');
 
 function toggleFollowMenu(open = followMenu.hidden) {
@@ -2756,7 +2756,7 @@ function startFollow(i) {
   followZoom = true;
   controls.enablePan = false; // panning would fight the tracking
   people.forEach((w, k) => w.label.classList.toggle('following', k === i));
-  followName.textContent = `跟拍中：${PEOPLE[i].name}`;
+  followName.textContent = `追隨中：${PEOPLE[i].name}`;
   followBar.hidden = false;
   track('follow_person', { person: PEOPLE[i].name });
 }
