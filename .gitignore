@@ -1,0 +1,37 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python (tools/*.py)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Claude Code: personal settings and notes stay local; shared .claude/ settings and CLAUDE.md are committed
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Node, in case a tool ever needs it (the site itself has no build step)
+node_modules/
+
+# Logs and env files
+*.log
+.env
+.env.*
