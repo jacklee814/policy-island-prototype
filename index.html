@@ -286,7 +286,7 @@
   header button { pointer-events: auto; flex: none; }
   .actions { display: flex; gap: 8px; flex: none; }
   #follow-toggle { display: inline-flex; align-items: center; gap: 4px; }
-  #menu-toggle, #text-link { display: none; }
+  #menu-toggle, #text-link, #islands-quick { display: none; }
   #rail { display: none; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .legend button {
@@ -467,7 +467,7 @@
   @media (max-width: 640px) {
     /* Phone header: title + one menu button. The menu opens the view buttons and the category filters in place. */
     header {
-      display: grid; grid-template-columns: 1fr auto auto; grid-template-areas: "title text menu" "sub sub sub" "actions actions actions" "legend legend legend";
+      display: grid; grid-template-columns: 1fr auto auto auto; grid-template-areas: "title text islands menu" "sub sub sub sub" "actions actions actions actions" "legend legend legend legend";
       gap: 6px 8px; padding: 0; border-radius: 16px; transition: background .2s, box-shadow .2s;
     }
     header > div:first-child { display: contents; }
@@ -475,16 +475,19 @@
     header p { grid-area: sub; margin: 0; font-size: 12px; }
     /* Plain-text version of all policies, for anyone who would rather read than explore the map */
     #text-link {
-      display: inline-flex; grid-area: text; align-items: center; pointer-events: auto; padding: 7px 12px; font-size: 14px;
+      display: inline-flex; grid-area: text; align-items: center; pointer-events: auto; padding: 7px 9px; font-size: 14px;
       color: var(--ink); text-decoration: none; background: var(--card); border: 1px solid var(--line); border-radius: 10px;
     }
-    #menu-toggle { display: inline-flex; grid-area: menu; pointer-events: auto; align-items: center; gap: 6px; padding: 7px 12px; font-size: 14px; }
+    #islands-quick { display: inline-flex; grid-area: islands; pointer-events: auto; align-items: center; padding: 7px 9px; font-size: 14px; }
+    #menu-toggle { display: inline-flex; grid-area: menu; pointer-events: auto; align-items: center; gap: 4px; padding: 7px 9px; font-size: 14px; }
+    /* 政見島 sits in the header bar on phones, so the menu keeps the other three views */
+    header.menu-open .actions #islands-view { display: none; }
     header .actions, header .legend { display: none; }
     header.menu-open {
       left: 8px; right: 8px; top: 8px; padding: 8px 8px 12px; background: rgba(255, 253, 248, .97);
       box-shadow: 0 10px 30px rgba(0, 0, 0, .15); pointer-events: auto;
     }
-    header.menu-open .actions { grid-area: actions; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+    header.menu-open .actions { grid-area: actions; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 4px; }
     header.menu-open .actions button { padding: 10px; font-size: 15px; justify-content: center; }
     header.menu-open .legend { grid-area: legend; display: flex; flex-wrap: wrap; margin: 4px 0 0; pointer-events: auto; }
     .scrim { height: 96px; }
@@ -655,6 +658,7 @@
     <div class="legend" id="legend" role="group" aria-label="依分類篩選"></div>
   </div>
   <a id="text-link" href="policy/">文字地圖</a>
+  <button id="islands-quick" type="button">政見島</button>
   <button id="menu-toggle" type="button" aria-expanded="false" aria-controls="header-actions" aria-label="開啟選單">☰ 選單</button>
   <div class="actions" id="header-actions">
     <button id="index-toggle" type="button" aria-expanded="false" aria-controls="index">☰ 清單</button>
@@ -2617,6 +2621,10 @@ document.getElementById('islands-view').addEventListener('click', () => { stopFo
 const headerEl = document.querySelector('header');
 const menuToggle = document.getElementById('menu-toggle');
 document.getElementById('text-link').addEventListener('click', () => track('open_text_version', { from: 'header' }));
+document.getElementById('islands-quick').addEventListener('click', () => {
+  toggleMenu(false);
+  document.getElementById('islands-view').click();
+});
 function toggleMenu(open = !headerEl.classList.contains('menu-open')) {
   headerEl.classList.toggle('menu-open', open);
   menuToggle.setAttribute('aria-expanded', String(open));
