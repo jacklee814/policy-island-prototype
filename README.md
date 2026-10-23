@@ -37,3 +37,16 @@ python3 tools/build_og_images.py && python3 tools/build_static.py
 ## 流量統計
 
 使用 Google Analytics 4（`G-5H13CQWF3X`）。除了頁面瀏覽，還記錄 `view_policy`、`view_spot`、`share`、`search`、`filter_category`、`open_index` 事件。
+
+## 官方政見更新偵測
+
+非官方整理最大的風險是內容過時。`.github/workflows/check-source.yml` 每天 09:00（台北時間）執行 `tools/check_source.py`，把官網政見頁的內文和 `tools/source_snapshot.json` 比對，有新增、移除或內容變更就開一張標籤為 `source-changed` 的 issue。
+
+收到通知後：
+
+1. 對照官網，更新 `index.html` 的 `POLICIES` 與 `SOURCE_DATE`
+2. `python3 tools/check_source.py --update`
+3. `python3 tools/build_og_images.py && python3 tools/build_static.py`
+
+`source_snapshot.json` 的官方原文也是「地區」分頁的資料來源：`build_static.py` 會找出每項政見原文裡點名了哪些行政區。
+

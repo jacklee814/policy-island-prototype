@@ -1,0 +1,52 @@
+# Daily check that the official policy pages have not changed since tools/source_snapshot.json.
+# A change opens (or comments on) an issue labelled source-changed; a failed check fails the run.
+name: Check official policies
+
+on:
+  schedule:
+    - cron: "0 1 * * *" # 09:00 Asia/Taipei
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare with the snapshot
+        id: check
+        run: |
+          set +e
+          python3 tools/check_source.py > changes.txt
+          code=$?
+          cat changes.txt
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          # 0 = unchanged, 1 = changed, anything else = the check itself failed
+          [ "$code" -le 1 ]
+
+      - name: Report the change in an issue
+        if: steps.check.outputs.code == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "官方政見頁面（https://chiao.tw/policies）有以下變動："
+            echo
+            sed 's/^/- /' changes.txt
+            echo
+            echo "處理方式："
+            echo "1. 對照官網，更新 index.html 的 POLICIES 與 SOURCE_DATE"
+            echo "2. python3 tools/check_source.py --update"
+            echo "3. python3 tools/build_og_images.py && python3 tools/build_static.py"
+          } > body.md
+          gh label create source-changed --color E0663D --description "官方政見有更新" 2>/dev/null || true
+          open=$(gh issue list --label source-changed --state open --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body-file body.md
+          else
+            gh issue create --title "官方政見有更新（$(date -u +%F)）" --label source-changed --body-file body.md
+          fi

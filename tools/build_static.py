@@ -8,6 +8,8 @@
   Open Graph tags that redirects into the app (keeping any utm_* query so
   analytics can attribute the visit). Their canonical is the text page.
 - index.html SEO blocks: JSON-LD structured data and a <noscript> text version.
+- index.html district data: which official policy pages name each of the 29
+  districts, taken from the official text saved by tools/check_source.py.
 - sitemap.xml listing every indexable page.
 
 Re-run after editing the data in index.html:
@@ -25,13 +27,13 @@ ROOT = Path(__file__).resolve().parent.parent
 SITE = "https://ntpc-island.github.io/"
 OG_IMAGE = SITE + "og.png"
 SOURCE_URL = "https://chiao.tw/policies"
-SOURCE_DATE = "2026-10-22"
 GA_ID = "G-5H13CQWF3X"
 TODAY = datetime.date.today().isoformat()
 
 index_path = ROOT / "index.html"
 source = index_path.read_text(encoding="utf-8")
 e = lambda v: html.escape(v, quote=True)
+SOURCE_DATE = re.search(r"const SOURCE_DATE = '(\d{4}-\d{2}-\d{2})'", source).group(1)
 
 
 def strings(block):
@@ -87,7 +89,32 @@ GA_SNIPPET = f"""<script async src="https://www.googletagmanager.com/gtag/js?id=
 HEADER = """<header class="site-header">
   <a class="brand" href="/">新北政見島</a>
   <nav><a href="/">3D 地圖</a><a href="/policy/">政見一覽</a><a href="/about/">關於本站</a></nav>
+  <div class="textsize" role="group" aria-label="字級">
+    <span>字級</span><button type="button" data-size-btn="m">標準</button><button type="button" data-size-btn="l">大</button><button type="button" data-size-btn="xl">特大</button>
+  </div>
 </header>"""
+
+# ?size=l (from the app's 大字文字版 link) wins, then the remembered choice
+SIZE_HEAD = """<script>
+  (() => {
+    let size = new URLSearchParams(location.search).get('size');
+    try { size = size || localStorage.getItem('textSize'); } catch { /* storage blocked */ }
+    document.documentElement.dataset.size = ['m', 'l', 'xl'].includes(size) ? size : 'm';
+  })();
+</script>"""
+
+SIZE_BODY = """<script>
+  (() => {
+    const root = document.documentElement, buttons = document.querySelectorAll('[data-size-btn]');
+    const show = () => buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sizeBtn === root.dataset.size)));
+    buttons.forEach((b) => b.addEventListener('click', () => {
+      root.dataset.size = b.dataset.sizeBtn;
+      try { localStorage.setItem('textSize', b.dataset.sizeBtn); } catch { /* storage blocked */ }
+      show();
+    }));
+    show();
+  })();
+</script>"""
 
 FOOTER = f"""<footer class="site-footer">
   非官方整理 · 政見內容摘錄自 <a href="{SOURCE_URL}">{SOURCE_URL}</a>（{SOURCE_DATE}），以官方網站為準 · 本站使用 Google Analytics 統計瀏覽情形
@@ -141,6 +168,7 @@ def text_page(path, title, description, body, crumbs, og_title=None, image=OG_IM
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">{ld}</script>
+{SIZE_HEAD}
 {GA_SNIPPET}
 </head>
 <body>
@@ -150,6 +178,7 @@ def text_page(path, title, description, body, crumbs, og_title=None, image=OG_IM
 {body}
 </main>
 {FOOTER}
+{SIZE_BODY}
 </body>
 </html>
 """
@@ -350,8 +379,35 @@ def fill(text, name, block):
     return pattern.sub(lambda m: m.group(1) + block + "\n" + m.group(2), text)
 
 
+DISTRICTS = "板橋 三重 中和 永和 新莊 新店 樹林 鶯歌 三峽 淡水 汐止 瑞芳 土城 蘆洲 五股 泰山 林口 深坑 石碇 坪林 三芝 石門 八里 平溪 雙溪 貢寮 金山 萬里 烏來".split()
+
+
+def clip(sentence, word, width=72):
+    """Keep about `width` characters of the sentence, centred on the district name."""
+    if len(sentence) <= width:
+        return sentence
+    at = sentence.index(word)
+    start = max(0, min(at - width // 3, len(sentence) - width))
+    return ("…" if start else "") + sentence[start:start + width] + ("…" if start + width < len(sentence) else "")
+
+
+snapshot = json.loads((ROOT / "tools" / "source_snapshot.json").read_text(encoding="utf-8"))
+short_by_slug = {p["slug"]: p["short"] for p in policies}
+district_data = {}
+for name in DISTRICTS:
+    hits = []
+    for official in snapshot["policies"]:
+        short = short_by_slug.get(official["slug"])
+        sentences = [x.strip() for line in official["text"].split("\n") for x in re.split(r"(?<=[。！？；])", line) if name in x]
+        if short and sentences:
+            hits.append({"short": short, "snippets": [clip(x, name) for x in dict.fromkeys(sentences)][:2]})
+    if hits:
+        district_data[name] = hits
+district_block = '<script type="application/json" id="district-data">' + json.dumps(district_data, ensure_ascii=False) + "</script>"
+
 source = fill(source, "jsonld", jsonld_block)
 source = fill(source, "noscript", noscript_block)
+source = re.sub(r"(<!-- data:districts:start -->\n).*?(<!-- data:districts:end -->)", lambda m: m.group(1) + district_block + "\n" + m.group(2), source, flags=re.S)
 index_path.write_text(source, encoding="utf-8")
 
 
@@ -363,4 +419,4 @@ urls = [SITE] + [SITE + p for p in ["policy/", "about/"] + [w for w in written i
     + "</urlset>\n",
     encoding="utf-8",
 )
-print(f"wrote {len(written)} text pages, {len(policies) + len(spots)} share pages, SEO blocks, sitemap ({len(urls)} urls)")
+print(f"wrote {len(written)} text pages, {len(policies) + len(spots)} share pages, SEO blocks, district data ({len(district_data)}/29 districts), sitemap ({len(urls)} urls)")

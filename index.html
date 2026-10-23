@@ -374,6 +374,28 @@
   }
   #index-list mark { background: #fde68a; color: inherit; border-radius: 2px; }
   #index-empty { margin: 4px 20px; color: var(--muted); font-size: 14px; }
+  .tabs button { padding: 6px 4px; }
+  #index-list .finder-intro { padding: 4px 8px 8px; color: var(--muted); font-size: 13px; }
+  #index-list .finder-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 2px 8px; }
+  #index-list .finder-grid button {
+    display: block; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; text-align: left;
+  }
+  #index-list .finder-grid button:hover { border-color: var(--accent); background: #fff; }
+  #index-list .finder-grid b { display: block; font-size: 14px; }
+  #index-list .finder-grid small { color: var(--muted); font-size: 12px; }
+  #index-list .finder-grid.districts { grid-template-columns: repeat(3, 1fr); }
+  #index-list .finder-grid.districts button { padding: 8px; text-align: center; }
+  #index-list .finder-grid .none { opacity: .55; }
+  #index-list .finder-head { padding: 6px 8px 10px; font-size: 14px; }
+  #index-list .finder-head p { margin: 0 0 8px; }
+  #index-list .finder-head .acts { display: flex; flex-wrap: wrap; gap: 6px; }
+  #index-list .finder-head .acts button { width: auto; display: inline-block; padding: 6px 12px; border: 1px solid var(--line); background: var(--card); font-size: 13px; }
+  #index-list .finder-head .acts .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .legend .finder-chip { color: #fff; background: #0f766e; border-color: #0f766e; font-weight: 600; }
+  .legend .highlight-chip { color: var(--ink); border-color: var(--ink); font-weight: 600; }
+  .legend .highlight-chip[hidden] { display: none; }
+  #card .meta { margin: -6px 0 12px; font-size: 12px; color: var(--muted); }
+  #card .meta a { color: inherit; }
   .index-note { margin: 0; padding: 8px 16px 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.5; }
   #toast {
     position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 10;
@@ -463,6 +485,9 @@
     }
   }, 20000);
 </script>
+<!-- data:districts:start -->
+<script type="application/json" id="district-data">{"板橋": [{"short": "產業升級", "snippets": ["六、板橋浮洲數位軟體新創園區"]}], "新莊": [{"short": "產業升級", "snippets": ["八、加速新莊國影中心二期"]}], "樹林": [{"short": "產業升級", "snippets": ["一、整體開發新北市泰山楓江、樹林大柑園科技園區"]}], "三峽": [{"short": "原住民族", "snippets": ["除了現有溪洲部落、三鶯部落及三峽隆恩埔三處部落聚會所之外，未來將持續選址興建部落聚會所，讓烏來及都市的族人都能擁有維繫情感、交流文化的空間。"]}], "淡水": [{"short": "新皇冠海岸", "snippets": ["新北的海岸線旁擁有最璀璨的八顆寶石：八里、淡水、三芝、石門、金山、萬里、瑞芳、貢寮，而他們的形狀，串連起來就⼀頂台灣的皇冠。", "參考京都丹後鐵道的經驗，規劃從淡水到萬里的「觀光鐵路」，盡收北海岸風景。"]}, {"short": "產業升級", "snippets": ["針對深坑、九份、淡水等特色商圈導入「一商圈一特色」的空間美學與體驗升級，同時加強步道接駁、商圈硬體美學設計、季季有活動，吸引人潮進入老街商圈。"]}], "汐止": [{"short": "產業升級", "snippets": ["串聯南港國家生技園區的研發能量與汐止生醫產業製造聚落，打造生醫關鍵零組件與精準醫療設備的製造基地 。"]}], "瑞芳": [{"short": "新皇冠海岸", "snippets": ["新北的海岸線旁擁有最璀璨的八顆寶石：八里、淡水、三芝、石門、金山、萬里、瑞芳、貢寮，而他們的形狀，串連起來就⼀頂台灣的皇冠。"]}, {"short": "鑽石山城", "snippets": ["…顆最璀璨的鑽石：步道、鐵道、礦業、茶文化與老街，這些元素交織在瑞芳、貢寮、平溪、雙溪、深坑、石碇、坪林與烏來等區域，構築出新北最深厚的文化底蘊。"]}], "泰山": [{"short": "產業升級", "snippets": ["一、整體開發新北市泰山楓江、樹林大柑園科技園區"]}], "林口": [{"short": "產業升級", "snippets": ["七、林口智慧影視園區"]}], "深坑": [{"short": "鑽石山城", "snippets": ["…顆最璀璨的鑽石：步道、鐵道、礦業、茶文化與老街，這些元素交織在瑞芳、貢寮、平溪、雙溪、深坑、石碇、坪林與烏來等區域，構築出新北最深厚的文化底蘊。", "以茶鄉媽祖繞境的路線為軸心（淡蘭南路，涵蓋深坑、石碇、坪林等地區），串聯沿線 250 座土地公廟，推動淡蘭古道土地公廟朝聖之旅。"]}, {"short": "產業升級", "snippets": ["針對深坑、九份、淡水等特色商圈導入「一商圈一特色」的空間美學與體驗升級，同時加強步道接駁、商圈硬體美學設計、季季有活動，吸引人潮進入老街商圈。"]}], "石碇": [{"short": "鑽石山城", "snippets": ["…顆最璀璨的鑽石：步道、鐵道、礦業、茶文化與老街，這些元素交織在瑞芳、貢寮、平溪、雙溪、深坑、石碇、坪林與烏來等區域，構築出新北最深厚的文化底蘊。", "以茶鄉媽祖繞境的路線為軸心（淡蘭南路，涵蓋深坑、石碇、坪林等地區），串聯沿線 250 座土地公廟，推動淡蘭古道土地公廟朝聖之旅。"]}], "坪林": [{"short": "鑽石山城", "snippets": ["…顆最璀璨的鑽石：步道、鐵道、礦業、茶文化與老街，這些元素交織在瑞芳、貢寮、平溪、雙溪、深坑、石碇、坪林與烏來等區域，構築出新北最深厚的文化底蘊。", "以茶鄉媽祖繞境的路線為軸心（淡蘭南路，涵蓋深坑、石碇、坪林等地區），串聯沿線 250 座土地公廟，推動淡蘭古道土地公廟朝聖之旅。"]}], "三芝": [{"short": "新皇冠海岸", "snippets": ["新北的海岸線旁擁有最璀璨的八顆寶石：八里、淡水、三芝、石門、金山、萬里、瑞芳、貢寮，而他們的形狀，串連起來就⼀頂台灣的皇冠。", "推動台 62 線延伸金山萬里、三芝輕軌、八里輕軌等計畫。"]}], "石門": [{"short": "新皇冠海岸", "snippets": ["新北的海岸線旁擁有最璀璨的八顆寶石：八里、淡水、三芝、石門、金山、萬里、瑞芳、貢寮，而他們的形狀，串連起來就⼀頂台灣的皇冠。"]}], "八里": [{"short": "新皇冠海岸", "snippets": ["新北的海岸線旁擁有最璀璨的八顆寶石：八里、淡水、三芝、石門、金山、萬里、瑞芳、貢寮，而他們的形狀，串連起來就⼀頂台灣的皇冠。", "推動台 62 線延伸金山萬里、三芝輕軌、八里輕軌等計畫。"]}, {"short": "產業升級", "snippets": ["三、八里台北港智慧物流加值園區"]}], "平溪": [{"short": "鑽石山城", "snippets": ["…顆最璀璨的鑽石：步道、鐵道、礦業、茶文化與老街，這些元素交織在瑞芳、貢寮、平溪、雙溪、深坑、石碇、坪林與烏來等區域，構築出新北最深厚的文化底蘊。", "在台鐵平溪支線及宜蘭線，開發融入礦業與山林元素的觀光列車，並結合在地農特產（如山藥、段木香菇）推出精緻鐵道便當。"]}], "雙溪": [{"short": "鑽石山城", "snippets": ["…顆最璀璨的鑽石：步道、鐵道、礦業、茶文化與老街，這些元素交織在瑞芳、貢寮、平溪、雙溪、深坑、石碇、坪林與烏來等區域，構築出新北最深厚的文化底蘊。", "…運輸、選洗煤等礦業流程及礦工生活聚落，挑選平溪、雙溪具價值的礦業遺構（如復興礦、石底大斜坑、頂雙溪煤礦等）進行復舊，並結合口述史保存、歷史模擬重…"]}], "貢寮": [{"short": "新皇冠海岸", "snippets": ["新北的海岸線旁擁有最璀璨的八顆寶石：八里、淡水、三芝、石門、金山、萬里、瑞芳、貢寮，而他們的形狀，串連起來就⼀頂台灣的皇冠。"]}, {"short": "鑽石山城", "snippets": ["…顆最璀璨的鑽石：步道、鐵道、礦業、茶文化與老街，這些元素交織在瑞芳、貢寮、平溪、雙溪、深坑、石碇、坪林與烏來等區域，構築出新北最深厚的文化底蘊。"]}], "金山": [{"short": "新皇冠海岸", "snippets": ["新北的海岸線旁擁有最璀璨的八顆寶石：八里、淡水、三芝、石門、金山、萬里、瑞芳、貢寮，而他們的形狀，串連起來就⼀頂台灣的皇冠。", "推動台 62 線延伸金山萬里、三芝輕軌、八里輕軌等計畫。"]}], "萬里": [{"short": "新皇冠海岸", "snippets": ["新北的海岸線旁擁有最璀璨的八顆寶石：八里、淡水、三芝、石門、金山、萬里、瑞芳、貢寮，而他們的形狀，串連起來就⼀頂台灣的皇冠。", "推動台 62 線延伸金山萬里、三芝輕軌、八里輕軌等計畫。"]}], "烏來": [{"short": "鑽石山城", "snippets": ["…顆最璀璨的鑽石：步道、鐵道、礦業、茶文化與老街，這些元素交織在瑞芳、貢寮、平溪、雙溪、深坑、石碇、坪林與烏來等區域，構築出新北最深厚的文化底蘊。"]}, {"short": "七大教育", "snippets": ["推動「全國遊學團」計畫，引導都會區學童走入烏來，體驗山林智慧與原住民族文化。"]}, {"short": "原住民族", "snippets": ["除了現有溪洲部落、三鶯部落及三峽隆恩埔三處部落聚會所之外，未來將持續選址興建部落聚會所，讓烏來及都市的族人都能擁有維繫情感、交流文化的空間。", "四、建置烏來公共托育中心"]}]}</script>
+<!-- data:districts:end -->
 <!-- seo:noscript:start -->
 <noscript>
 <div class="noscript">
@@ -554,6 +579,8 @@
   <div class="tabs" role="tablist">
     <button id="tab-policies" type="button" role="tab" aria-selected="true">政見 <span></span></button>
     <button id="tab-spots" type="button" role="tab" aria-selected="false">景點 <span></span></button>
+    <button id="tab-persona" type="button" role="tab" aria-selected="false">身分</button>
+    <button id="tab-district" type="button" role="tab" aria-selected="false">地區</button>
   </div>
   <ul id="index-list"></ul>
   <p id="index-empty" hidden>找不到符合的項目</p>
@@ -601,7 +628,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-// ---------- Policy data (excerpted from https://chiao.tw/policies, 2026-10-22) ----------
+// ---------- Policy data (excerpted from https://chiao.tw/policies on SOURCE_DATE) ----------
+// When the official pages change (tools/check_source.py), update POLICIES and this date, then rebuild
+const SOURCE_DATE = '2026-10-22';
 const GROUPS = {
   care: { name: '照顧', color: '#e0663d' },
   tourism: { name: '觀光', color: '#3f7fd0' },
@@ -1464,9 +1493,11 @@ function updateLabels() {
 }
 
 const legendEl = document.getElementById('legend');
-legendEl.innerHTML = Object.entries(GROUPS)
-  .map(([key, grp]) => `<button type="button" data-filter="${key}" aria-pressed="false"><i style="background:${grp.color}"></i>${grp.name}</button>`)
-  .join('') + '<button type="button" data-filter="spot" aria-pressed="false"><span class="spot-key">◆</span>新北景點</button>';
+legendEl.innerHTML = '<button type="button" class="finder-chip" data-finder>✦ 找我的政見</button>'
+  + '<button type="button" class="highlight-chip" data-clear-highlight hidden></button>'
+  + Object.entries(GROUPS)
+    .map(([key, grp]) => `<button type="button" data-filter="${key}" aria-pressed="false"><i style="background:${grp.color}"></i>${grp.name}</button>`)
+    .join('') + '<button type="button" data-filter="spot" aria-pressed="false"><span class="spot-key">◆</span>新北景點</button>';
 
 // ---------- New Taipei landmarks (decorative islets outside the ring) ----------
 function rod(g, a, b, r, color) {
@@ -2007,6 +2038,7 @@ const prevBtn = document.getElementById('prev'), nextBtn = document.getElementBy
 const posEl = document.getElementById('pos');
 let selected = -1, selectedSpot = -1;
 let filter = null; // a GROUPS key, 'spot', or null
+let finderSet = null, finderLabel = ''; // Set of policy indices picked by the finder (persona / district)
 let cardOpener = null;
 
 // Prev/next walks the landmarks, or the policies (only the filtered group when the current one is in it)
@@ -2057,16 +2089,22 @@ function setIslandDim(g, on) {
   });
 }
 function applyDim() {
+  // Out of focus: not in the category filter, or not among the finder's (persona / district) picks
+  const off = (k) => (filter !== null && (filter === 'spot' || POLICIES[k].group !== filter))
+    || (finderSet !== null && !finderSet.has(k));
   islands.forEach((g, k) => {
-    const dim = selected >= 0 ? k !== selected
-      : selectedSpot >= 0 || filter === 'spot' || (filter !== null && POLICIES[k].group !== filter);
+    const dim = selected >= 0 ? k !== selected : selectedSpot >= 0 || off(k);
     setIslandDim(g, dim);
     labels[k].classList.toggle('dim', dim);
     labels[k].classList.toggle('active', k === selected);
   });
   spots.forEach((s, j) => s.label.classList.toggle('dim',
-    selectedSpot >= 0 ? j !== selectedSpot : selected >= 0 || (filter !== null && filter !== 'spot')));
-  legendEl.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)));
+    selectedSpot >= 0 ? j !== selectedSpot : selected >= 0 || (filter !== null && filter !== 'spot') || finderSet !== null));
+  legendEl.querySelectorAll('button[data-filter]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)));
+  const chip = legendEl.querySelector('[data-clear-highlight]');
+  chip.hidden = finderSet === null;
+  chip.textContent = finderSet === null ? '' : `✦ ${finderLabel} ×`;
+  chip.setAttribute('aria-label', `清除「${finderLabel}」標示`);
 }
 
 function openCard() {
@@ -2090,6 +2128,7 @@ function select(i) {
     <p>${p.summary}</p>
     <ul>${p.items.map((t) => `<li>${t}</li>`).join('')}</ul>
     <a class="source" href="${policyUrl(p)}" target="_blank" rel="noopener">閱讀完整政見 ↗</a>
+    <p class="meta">資料擷取自官網 ${SOURCE_DATE} · <a href="policy/${encodeURIComponent(p.short)}/?size=l">大字文字版</a></p>
     <div class="share">
       <span class="share-label">分享</span>
       ${socialLinks()}
@@ -2114,6 +2153,7 @@ function selectSpot(k) {
     <h2 tabindex="-1">${s.name}</h2>
     <p>${s.desc}</p>
     <a class="source" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.map)}" target="_blank" rel="noopener">在 Google 地圖開啟 ↗</a>
+    <p class="meta"><a href="spot/${encodeURIComponent(s.name)}/?size=l">大字文字版</a></p>
     <div class="share">
       <span class="share-label">分享</span>
       ${socialLinks()}
@@ -2151,8 +2191,18 @@ function deselect() {
 }
 
 legendEl.addEventListener('click', (e) => {
+  if (e.target.closest('[data-finder]')) {
+    toggleIndex(true);
+    setTab(persona || !district ? 'persona' : 'district');
+    return;
+  }
+  if (e.target.closest('[data-clear-highlight]')) {
+    clearFinder();
+    return;
+  }
   const b = e.target.closest('button[data-filter]');
   if (!b) return;
+  clearFinder(false); // a category filter replaces the finder's highlight
   filter = filter === b.dataset.filter ? null : b.dataset.filter;
   if (filter) track('filter_category', { category: filter === 'spot' ? '新北景點' : GROUPS[filter].name });
   if (selected >= 0 || selectedSpot >= 0) deselect();
@@ -2443,6 +2493,8 @@ function applyHash() {
   const k = SPOTS.findIndex((s) => s.name === name);
   if (kind === 'policy' && i >= 0) select(i);
   else if (kind === 'spot' && k >= 0) selectSpot(k);
+  else if (kind === 'persona' && PERSONAS.some((x) => x.key === name)) openFinder('persona', name);
+  else if (kind === 'district' && DISTRICTS.includes(name)) openFinder('district', name);
 }
 addEventListener('hashchange', applyHash);
 
@@ -2466,6 +2518,11 @@ const INDEX = {
 };
 
 function renderIndex() {
+  searchEl.hidden = indexTab === 'persona' || indexTab === 'district';
+  if (searchEl.hidden) {
+    renderFinder();
+    return;
+  }
   const q = searchEl.value.trim();
   const matches = (it) => !q || it.haystack.toLowerCase().includes(q.toLowerCase());
   tabPolicies.querySelector('span').textContent = INDEX.policies.filter(matches).length;
@@ -2483,12 +2540,188 @@ function renderIndex() {
   emptyEl.hidden = items.length > 0;
 }
 
+const tabPersona = document.getElementById('tab-persona'), tabDistrict = document.getElementById('tab-district');
 function setTab(tab) {
   indexTab = tab;
   tabPolicies.setAttribute('aria-selected', String(tab === 'policies'));
   tabSpots.setAttribute('aria-selected', String(tab === 'spots'));
+  tabPersona.setAttribute('aria-selected', String(tab === 'persona'));
+  tabDistrict.setAttribute('aria-selected', String(tab === 'district'));
   renderIndex();
 }
+tabPersona.addEventListener('click', () => setTab('persona'));
+tabDistrict.addEventListener('click', () => setTab('district'));
+
+// ---------- Finder: policies for who you are, or for where you live ----------
+// Each persona points at the policy item that concerns it; the keyword must appear in that item's text
+const PERSONAS = [
+  { key: '家長', desc: '育兒、托育、孩子教育', picks: [['長幼福利', '營養午餐'], ['家庭照顧', '托育'], ['牙齒口腔', '塗氟'], ['都更住宅', '青年育兒宅'], ['七大教育', '全國遊學團']] },
+  { key: '長輩', desc: '長照、假牙、敬老卡', picks: [['長幼福利', '敬老卡'], ['三大長照', '出院後'], ['牙齒口腔', '假牙'], ['家庭照顧', '獨居老人'], ['都更住宅', '長者']] },
+  { key: '青年', desc: '創業、住宅、職涯', picks: [['青年支持', '微型創業'], ['都更住宅', '青年育兒宅'], ['七大教育', '技職']] },
+  { key: '上班族與勞工', desc: '勞動權益、職訓、產業', picks: [['勞工權益', '職災'], ['家庭照顧', '職業照顧者'], ['青年支持', '技術士證照'], ['產業升級', '工業區']] },
+  { key: '老師', desc: '教學現場與行政減量', picks: [['七大教育', '教師節禮金']] },
+  { key: '毛孩家長', desc: '寵物醫療與友善空間', picks: [['毛孩照顧', '疫苗']] },
+  { key: '原住民族', desc: '族人照顧與文化傳承', picks: [['原住民族', '租金補貼']] },
+  { key: '客家鄉親', desc: '客語傳承與客家長輩', picks: [['四大客家', '伯公照護站']] },
+  { key: '愛旅遊', desc: '海岸、山城與老街', picks: [['新皇冠海岸', '自行車道'], ['鑽石山城', '觀光列車'], ['產業升級', '老街']] },
+].map((persona) => ({
+  ...persona,
+  picks: persona.picks.flatMap(([short, keyword]) => {
+    const i = POLICIES.findIndex((p) => p.short === short);
+    const item = POLICIES[i]?.items.find((t) => t.includes(keyword));
+    if (!item) console.warn(`persona ${persona.key}: no item in ${short} mentions ${keyword}`);
+    return item ? [{ i, text: item }] : [];
+  }),
+}));
+
+// Which official policy pages name each district, generated by tools/build_static.py from the official text
+const DISTRICTS = ['板橋', '三重', '中和', '永和', '新莊', '新店', '樹林', '鶯歌', '三峽', '淡水', '汐止', '瑞芳', '土城', '蘆洲', '五股',
+  '泰山', '林口', '深坑', '石碇', '坪林', '三芝', '石門', '八里', '平溪', '雙溪', '貢寮', '金山', '萬里', '烏來'];
+const districtData = JSON.parse(document.getElementById('district-data')?.textContent || '{}');
+const districtPicks = (name) => (districtData[name] || []).flatMap(({ short, snippets }) => {
+  const i = POLICIES.findIndex((p) => p.short === short);
+  return i >= 0 ? [{ i, text: snippets.join(' … ') }] : [];
+});
+
+let persona = null, district = null;
+
+function setHighlight(indices, label) {
+  finderSet = indices.length ? new Set(indices) : null;
+  finderLabel = label;
+  applyDim();
+}
+
+function clearFinder(updateHash = true) {
+  persona = district = null;
+  setHighlight([], '');
+  if (!indexEl.hidden) renderIndex();
+  if (updateHash && selected < 0 && selectedSpot < 0) setHash('', '');
+}
+
+function openFinder(kind, name) {
+  toggleIndex(true);
+  if (kind === 'persona') choosePersona(name);
+  else chooseDistrict(name);
+  setTab(kind);
+}
+
+function choosePersona(key) {
+  persona = key;
+  district = null;
+  const p = PERSONAS.find((x) => x.key === key);
+  setHighlight(p.picks.map((x) => x.i), key);
+  setHash(`persona/${key}`, `${key}關心的政見`);
+  track('find_persona', { persona: key });
+}
+
+function chooseDistrict(name) {
+  district = name;
+  persona = null;
+  setHighlight(districtPicks(name).map((x) => x.i), `${name}區`);
+  setHash(`district/${name}`, `${name}區的政見`);
+  track('find_district', { district: name });
+}
+
+function resultItems(picks, mark) {
+  return picks.map(({ i, text }) => {
+    const p = POLICIES[i];
+    return `<li><button type="button" data-i="${i}">
+      <i class="dot" style="background:${GROUPS[p.group].color}"></i>
+      <span><div class="t">${esc(p.title)}</div><div class="s">${highlightText(text, mark)}</div></span>
+    </button></li>`;
+  }).join('');
+}
+const highlightText = (text, mark) => (mark ? esc(text).split(esc(mark)).join(`<mark>${esc(mark)}</mark>`) : esc(text));
+
+function renderFinder() {
+  emptyEl.hidden = true;
+  if (indexTab === 'persona') {
+    if (!persona) {
+      listEl.innerHTML = '<li class="finder-intro">選一個最接近你的身分，看看哪些政見跟你有關。</li><li class="finder-grid">'
+        + PERSONAS.map((p) => `<button type="button" data-persona="${p.key}"><b>${p.key}</b><small>${p.desc}</small></button>`).join('') + '</li>';
+      return;
+    }
+    const p = PERSONAS.find((x) => x.key === persona);
+    listEl.innerHTML = `<li class="finder-head"><p><b>${p.key}</b>：${p.picks.length} 項相關政見，島嶼已標示在地圖上</p>
+      <div class="acts"><button type="button" class="primary" data-act="persona-card">產生我的關心清單圖卡</button><button type="button" data-act="back">換一個身分</button></div></li>`
+      + resultItems(p.picks, '');
+    return;
+  }
+  if (!district) {
+    listEl.innerHTML = '<li class="finder-intro">選你住的區，看官方政見裡有點名這個區的內容。</li><li class="finder-grid districts">'
+      + DISTRICTS.map((d) => {
+        const n = (districtData[d] || []).length;
+        return `<button type="button" data-district="${d}"${n ? '' : ' class="none"'}>${d}${n ? ` <small>${n}</small>` : ''}</button>`;
+      }).join('') + '</li>';
+    return;
+  }
+  const picks = districtPicks(district);
+  listEl.innerHTML = `<li class="finder-head"><p><b>${district}區</b>：${picks.length
+    ? `官方政見有 ${picks.length} 項點名這個區`
+    : '官方政見沒有特別點名這個區，多數政見適用全新北市，可以從「身分」找跟你有關的'}</p>
+    <div class="acts"><button type="button" data-act="back">換一個區</button></div></li>` + resultItems(picks, district);
+}
+
+// Story-sized card listing a persona's picks, shared through the same preview dialog as the IG story
+function makePersonaCanvas(key) {
+  const W = 1080, H = 1920, PAD = 90;
+  const p = PERSONAS.find((x) => x.key === key);
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext('2d');
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#d6efe9');
+  bg.addColorStop(1, '#fffdf8');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = '#1f2328';
+  ctx.font = `700 40px ${STORY_FONT}`;
+  ctx.fillText('新北政見島', PAD, 90);
+  ctx.fillStyle = '#5b6370';
+  ctx.font = `400 30px ${STORY_FONT}`;
+  ctx.textAlign = 'right';
+  ctx.fillText('非官方整理', W - PAD, 96);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#0f766e';
+  ctx.font = `700 44px ${STORY_FONT}`;
+  ctx.fillText(`身為${p.key}`, PAD, 220);
+  ctx.fillStyle = '#1f2328';
+  ctx.font = `700 76px ${STORY_FONT}`;
+  ctx.fillText('我關心的新北政見', PAD, 290);
+  // Spread the picks over the space between the heading and the footer
+  const top = 450, bottom = H - 220, gap = 28;
+  const blocks = p.picks.map(({ i, text }) => {
+    ctx.font = `400 40px ${STORY_FONT}`;
+    return { pol: POLICIES[i], lines: wrapText(ctx, text, W - PAD * 2 - 72).slice(0, 3) };
+  });
+  const heights = blocks.map((b) => 108 + b.lines.length * 56 + 32);
+  const total = heights.reduce((a, b) => a + b, 0) + gap * (blocks.length - 1);
+  let y = top + Math.max(0, (bottom - top - total) / 3);
+  blocks.forEach(({ pol, lines }, k) => {
+    if (y + heights[k] > bottom) return;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(PAD, y, W - PAD * 2, heights[k], 28);
+    ctx.fill();
+    ctx.fillStyle = GROUPS[pol.group].color;
+    ctx.fillRect(PAD, y + 24, 10, heights[k] - 48);
+    ctx.fillStyle = '#1f2328';
+    ctx.font = `700 48px ${STORY_FONT}`;
+    ctx.fillText(pol.title, PAD + 40, y + 32);
+    ctx.fillStyle = '#5b6370';
+    ctx.font = `400 40px ${STORY_FONT}`;
+    lines.forEach((line, n) => ctx.fillText(line, PAD + 40, y + 108 + n * 56));
+    y += heights[k] + gap;
+  });
+  ctx.fillStyle = '#5b6370';
+  ctx.font = `400 28px ${STORY_FONT}`;
+  ctx.fillText('完整內容：ntpc-island.github.io', PAD, H - 150);
+  ctx.fillText('內容整理自蘇巧慧 2026 競選網站，以官方網站為準', PAD, H - 108);
+  return c;
+}
+
 
 function toggleIndex(open = indexEl.hidden) {
   if (open && !card.hidden) deselect(); // never show the card and the index panel together
@@ -2519,11 +2752,20 @@ searchEl.addEventListener('input', () => {
   }, 1200);
 });
 listEl.addEventListener('click', (e) => {
+  const finder = e.target.closest('button[data-persona], button[data-district], button[data-act]');
+  if (finder) {
+    if (finder.dataset.persona) choosePersona(finder.dataset.persona);
+    else if (finder.dataset.district) chooseDistrict(finder.dataset.district);
+    else if (finder.dataset.act === 'back') clearFinder();
+    else if (finder.dataset.act === 'persona-card') openPersonaStory(persona, finder);
+    renderIndex();
+    return;
+  }
   const btn = e.target.closest('button[data-i]');
   if (!btn) return;
   const i = Number(btn.dataset.i);
-  if (indexTab === 'policies') select(i);
-  else selectSpot(i);
+  if (indexTab === 'spots') selectSpot(i);
+  else select(i); // policies, and the finder's results
   cardOpener = indexToggle; // the list item is gone with the closed panel, so return focus to the toggle
 });
 
@@ -2797,17 +3039,29 @@ const storyShareBtn = document.getElementById('story-share');
 const storyDownloadBtn = document.getElementById('story-download');
 let storyFile = null, storyOpener = null;
 
-function openStory(i, opener) {
-  const blob = canvasToBlob(makeStoryCanvas(i));
-  storyFile = new File([blob], `新北政見島-${POLICIES[i].short}.png`, { type: 'image/png' });
+let storyItem = {}; // analytics fields for whatever the dialog is showing
+
+function showStory(canvas, fileName, link, item, opener) {
+  const blob = canvasToBlob(canvas);
+  storyFile = new File([blob], fileName, { type: 'image/png' });
   if (storyImg.src) URL.revokeObjectURL(storyImg.src);
   storyImg.src = URL.createObjectURL(blob);
   storyShareBtn.hidden = !navigator.canShare?.({ files: [storyFile] });
+  storyItem = item;
   storyOpener = opener;
   storyEl.hidden = false;
-  navigator.clipboard?.writeText(shareUrl('instagram')).catch(() => {});
-  track('share', { method: 'instagram_story_preview', ...currentItem() });
+  navigator.clipboard?.writeText(link).catch(() => {});
+  track('share', { method: 'instagram_story_preview', ...item });
   (storyShareBtn.hidden ? storyDownloadBtn : storyShareBtn).focus();
+}
+
+function openStory(i, opener) {
+  showStory(makeStoryCanvas(i), `新北政見島-${POLICIES[i].short}.png`, shareUrl('instagram'), currentItem(), opener);
+}
+
+function openPersonaStory(key, opener) {
+  const link = `${SITE}?utm_source=instagram&utm_medium=social&utm_campaign=persona#${encodeURI(`persona/${key}`)}`;
+  showStory(makePersonaCanvas(key), `新北政見島-${key}關心的政見.png`, link, { content_type: 'persona', item_id: key }, opener);
 }
 
 function closeStory() {
@@ -2817,13 +3071,13 @@ function closeStory() {
 
 // Share only the file: adding text or a URL makes some platforms hide Instagram from the share sheet
 storyShareBtn.addEventListener('click', () => {
-  track('share', { method: 'instagram_story', ...currentItem() });
+  track('share', { method: 'instagram_story', ...storyItem });
   navigator.share({ files: [storyFile] }).catch((e) => {
     if (e.name !== 'AbortError') showToast('無法開啟分享選單，請改用「下載圖片」');
   });
 });
 storyDownloadBtn.addEventListener('click', () => {
-  track('share', { method: 'instagram_story_download', ...currentItem() });
+  track('share', { method: 'instagram_story_download', ...storyItem });
   downloadBlob(storyFile, storyFile.name);
   showToast('已下載圖片，到 IG 新增限時動態時從相簿選取');
 });
