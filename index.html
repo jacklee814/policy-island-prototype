@@ -247,7 +247,29 @@
   .label .n { color: var(--accent); margin-right: 6px; font-variant-numeric: tabular-nums; }
   .label.dim { opacity: .3; }
   .label.active { border-color: var(--accent); }
-  .label.person { font-size: 12px; padding: 2px 8px; pointer-events: none; }
+  .label.person { font-size: 12px; padding: 2px 8px; }
+  .label.person.following { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(224, 102, 61, .35); }
+  #follow-menu {
+    position: fixed; z-index: 8; width: 240px; padding: 8px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .14);
+  }
+  #follow-menu[hidden] { display: none; }
+  #follow-menu .title { grid-column: 1 / -1; margin: 2px 4px 4px; font-size: 13px; color: var(--muted); }
+  #follow-menu button { display: flex; align-items: center; gap: 6px; padding: 8px 10px; font-size: 14px; text-align: left; }
+  #follow-menu i { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+  #follow-menu .ride { margin-left: auto; font-size: 11px; color: var(--muted); }
+  #follow-bar {
+    position: fixed; left: 50%; transform: translateX(-50%); z-index: 7;
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 999px;
+    background: rgba(31, 35, 40, .92); color: #fff; font-size: 14px; white-space: nowrap;
+  }
+  #follow-bar[hidden] { display: none; }
+  #follow-bar button { padding: 6px 12px; border: none; border-radius: 999px; background: rgba(255, 255, 255, .14); color: #fff; }
+  #follow-bar button:hover { background: rgba(255, 255, 255, .26); }
+  #follow-bar .name { padding: 0 4px; }
   .label.person i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
   .label.ghost {
     background: none; border: none; box-shadow: none; pointer-events: none;
@@ -519,6 +541,7 @@
   </div>
   <div class="actions">
     <button id="index-toggle" type="button" aria-expanded="false" aria-controls="index">☰ 清單</button>
+    <button id="follow-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="follow-menu">跟拍</button>
     <button id="islands-view" type="button">政見島</button>
     <button id="home" type="button">全景</button>
   </div>
@@ -537,6 +560,13 @@
   <p class="index-note"><a href="policy/">文字版政見一覽</a> · <a href="about/">關於本站</a> · 非官方整理，以 <a href="https://chiao.tw/policies" target="_blank" rel="noopener">官方網站</a> 為準 · 本站使用 Google Analytics 統計瀏覽情形</p>
 </aside>
 <div id="toast" role="status" hidden></div>
+<div id="follow-menu" role="menu" aria-label="選擇要跟拍的人物" hidden></div>
+<div id="follow-bar" hidden>
+  <button id="follow-prev" type="button" aria-label="上一個人物">‹</button>
+  <span class="name" id="follow-name" aria-live="polite"></span>
+  <button id="follow-next" type="button" aria-label="下一個人物">›</button>
+  <button id="follow-stop" type="button">停止跟拍</button>
+</div>
 <div id="story" hidden role="dialog" aria-modal="true" aria-labelledby="story-title">
   <div class="story-box">
     <button class="close" id="story-close" type="button" aria-label="關閉">×</button>
@@ -1871,9 +1901,12 @@ function makePerson(p) {
 
 const people = PEOPLE.map((p, i) => {
   const from = Math.floor(Math.random() * nodes.length);
-  const label = document.createElement('div');
+  const label = document.createElement('button');
+  label.type = 'button';
   label.className = 'label person';
   label.innerHTML = `<i style="background:${p.shirt}"></i>${p.name}`;
+  label.setAttribute('aria-label', `跟拍 ${p.name}`);
+  label.addEventListener('click', () => startFollow(i));
   labelsEl.appendChild(label);
   return { ...makePerson(p), label, from, to: nodes[from].links[0], t: 0, wait: i * 0.4, phase: 0 };
 });
@@ -1960,7 +1993,10 @@ function flyTo(target, offset) {
     fly = null;
   }
 }
-controls.addEventListener('start', () => { fly = null; });
+controls.addEventListener('start', () => {
+  fly = null;
+  followZoom = false; // the person drags: keep following, but stop pulling the camera to the preset distance
+});
 camera.position.copy(HOME_TARGET).add(homeOffset());
 controls.target.copy(HOME_TARGET);
 
@@ -2034,6 +2070,7 @@ function applyDim() {
 }
 
 function openCard() {
+  stopFollow();
   if (!indexEl.hidden) toggleIndex(false); // never show the card and the index panel together
   if (card.hidden) cardOpener = document.activeElement; // return focus here when the card closes
   card.hidden = false;
@@ -2135,8 +2172,80 @@ card.addEventListener('touchend', (e) => {
 document.getElementById('card-close').addEventListener('click', deselect);
 prevBtn.addEventListener('click', () => step(-1));
 nextBtn.addEventListener('click', () => step(1));
-document.getElementById('home').addEventListener('click', () => { deselect(); flyTo(HOME_TARGET, homeOffset()); });
-document.getElementById('islands-view').addEventListener('click', () => { deselect(); flyTo(ISLANDS_TARGET, islandsOffset()); });
+document.getElementById('home').addEventListener('click', () => { stopFollow(); deselect(); flyTo(HOME_TARGET, homeOffset()); });
+document.getElementById('islands-view').addEventListener('click', () => { stopFollow(); deselect(); flyTo(ISLANDS_TARGET, islandsOffset()); });
+
+// ---------- Follow cam: the camera tracks one of the people around the track ----------
+const followMenu = document.getElementById('follow-menu');
+const followToggle = document.getElementById('follow-toggle');
+const followBar = document.getElementById('follow-bar');
+const followName = document.getElementById('follow-name');
+let following = -1, followZoom = false;
+const followOffset = () => (camera.aspect < 0.8 ? v3(0, 5, 6.5) : v3(3, 3.2, 4.4));
+const followGoal = new THREE.Vector3(), followStep = new THREE.Vector3(), followArm = new THREE.Vector3();
+
+followMenu.innerHTML = '<p class="title">選擇要跟拍的人物</p>' + PEOPLE.map((p, i) =>
+  `<button type="button" role="menuitem" data-i="${i}"><i style="background:${p.shirt}"></i>${p.name}${p.ride ? '<span class="ride">騎車</span>' : ''}</button>`).join('');
+
+function toggleFollowMenu(open = followMenu.hidden) {
+  followMenu.hidden = !open;
+  followToggle.setAttribute('aria-expanded', String(open));
+  if (!open) return;
+  const r = followToggle.getBoundingClientRect();
+  followMenu.style.top = `${r.bottom + 8}px`;
+  followMenu.style.right = `${Math.max(16, innerWidth - r.right)}px`;
+  followMenu.querySelector('button').focus();
+}
+
+function startFollow(i) {
+  toggleFollowMenu(false);
+  if (!card.hidden) deselect();
+  fly = null;
+  following = i;
+  followZoom = true;
+  controls.enablePan = false; // panning would fight the tracking
+  people.forEach((w, k) => w.label.classList.toggle('following', k === i));
+  followName.textContent = `跟拍中：${PEOPLE[i].name}`;
+  followBar.hidden = false;
+  track('follow_person', { person: PEOPLE[i].name });
+}
+
+function stopFollow() {
+  if (following < 0) return;
+  following = -1;
+  controls.enablePan = true;
+  people.forEach((w) => w.label.classList.remove('following'));
+  followBar.hidden = true;
+}
+
+// Move target and camera together so the person stays centred while orbit and zoom keep working
+function updateFollow(dt) {
+  if (following < 0) return;
+  const w = people[following];
+  followGoal.copy(w.g.position).setY(w.g.position.y + 0.6);
+  const k = reduced ? 1 : Math.min(1, dt * 6);
+  followStep.subVectors(followGoal, controls.target).multiplyScalar(k);
+  controls.target.add(followStep);
+  camera.position.add(followStep);
+  if (followZoom) {
+    const goal = followOffset();
+    followArm.subVectors(camera.position, controls.target).lerp(goal, reduced ? 1 : Math.min(1, dt * 2.5));
+    camera.position.copy(controls.target).add(followArm);
+    if (followArm.distanceTo(goal) < 0.05) followZoom = false;
+  }
+}
+
+followToggle.addEventListener('click', () => toggleFollowMenu());
+followMenu.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-i]');
+  if (b) startFollow(Number(b.dataset.i));
+});
+document.getElementById('follow-prev').addEventListener('click', () => startFollow((following - 1 + people.length) % people.length));
+document.getElementById('follow-next').addEventListener('click', () => startFollow((following + 1) % people.length));
+document.getElementById('follow-stop').addEventListener('click', stopFollow);
+addEventListener('pointerdown', (e) => {
+  if (!followMenu.hidden && !followMenu.contains(e.target) && e.target !== followToggle) toggleFollowMenu(false);
+});
 addEventListener('keydown', (e) => {
   const arrow = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
   if (arrow && !card.hidden && storyEl.hidden && !e.target.closest('input, textarea')) {
@@ -2145,7 +2254,9 @@ addEventListener('keydown', (e) => {
   }
   if (e.key !== 'Escape') return;
   if (!storyEl.hidden) closeStory();
+  else if (!followMenu.hidden) toggleFollowMenu(false);
   else if (!card.hidden) deselect();
+  else if (following >= 0) stopFollow();
   else if (!indexEl.hidden) toggleIndex(false);
 });
 
@@ -2799,6 +2910,7 @@ renderer.setAnimationLoop(() => {
   });
   updateBridges();
   people.forEach((w) => stepPerson(w, reduced ? 0 : dt));
+  updateFollow(dt);
   if (fly) {
     const k = Math.min(1, dt * 3);
     controls.target.lerp(fly.target, k);
