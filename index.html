@@ -569,6 +569,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ---------- Policy data (excerpted from https://chiao.tw/policies, 2026-10-22) ----------
 const GROUPS = {
@@ -695,13 +696,17 @@ const cached = (cache, key, make) => {
 };
 const mat = (color, extra = {}) => cached(matCache, color + JSON.stringify(extra), () =>
   new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...extra }));
+// `extra` is either extra material params for the cached plain material, or a ready-made material to use as is
 const mesh = (geo, color, x = 0, y = 0, z = 0, extra) => {
-  const m = new THREE.Mesh(geo, mat(color, extra));
+  const m = new THREE.Mesh(geo, extra?.isMaterial ? extra : mat(color, extra));
   m.position.set(x, y, z);
   m.castShadow = m.receiveShadow = true;
   return m;
 };
 const rbox = (w, h, d, r = 0.08) => new RoundedBoxGeometry(w, h, d, 2, r);
+// Geometry built once per key and shared by every mesh that uses it
+const geoCache = new Map();
+const sharedGeo = (key, make) => cached(geoCache, key, make);
 const shade = (hex, amt) => '#' + new THREE.Color(hex).lerp(new THREE.Color(amt > 0 ? '#ffffff' : '#000000'), Math.abs(amt)).getHexString();
 
 const animators = [];
@@ -720,13 +725,17 @@ function house(g, x, z, wall, roof, s = 1) {
 
 // A 64px canvas painted by `draw`, made into a repeating texture once per key
 const texCache = new Map();
-const canvasTexture = (key, repeatX, repeatY, draw) => cached(texCache, key, () => {
+const canvasTexture = (key, repeatX, repeatY, draw, nearest = false) => cached(texCache, key, () => {
   const cv = document.createElement('canvas');
   cv.width = cv.height = 64;
   draw(cv.getContext('2d'));
   const tex = new THREE.CanvasTexture(cv);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(repeatX, repeatY);
+  if (nearest) {
+    tex.magFilter = tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+  }
   return tex;
 });
 
@@ -734,27 +743,34 @@ const canvasTexture = (key, repeatX, repeatY, draw) => cached(texCache, key, () 
 const furTexture = () => canvasTexture('fur', 8, 2, (ctx) => {
   ctx.fillStyle = '#808080';
   ctx.fillRect(0, 0, 64, 64);
+  // All light strokes go into one path and all dark ones into another, so the canvas strokes just twice
+  const light = new Path2D(), dark = new Path2D();
   for (let i = 0; i < 400; i++) {
     const x = Math.random() * 64, y = Math.random() * 64, l = 2 + Math.random() * 4;
-    ctx.strokeStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)';
-    // Also draw the wrapped-around copies so strokes crossing an edge continue on the other side and the map tiles seamlessly
+    const path = Math.random() < 0.5 ? light : dark;
+    // Also add the wrapped-around copies so strokes crossing an edge continue on the other side and the map tiles seamlessly
     [-64, 0, 64].forEach((dx) => [-64, 0, 64].forEach((dy) => {
-      ctx.beginPath();
-      ctx.moveTo(x + dx, y + dy);
-      ctx.lineTo(x + dx + l, y + dy + l * 0.3);
-      ctx.stroke();
+      path.moveTo(x + dx, y + dy);
+      path.lineTo(x + dx + l, y + dy + l * 0.3);
     }));
   }
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.stroke(light);
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.stroke(dark);
 });
 const furMat = (color) => cached(matCache, 'fur' + color, () =>
   new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.05, bumpMap: furTexture(), bumpScale: 0.3 }));
 
-// Shell fur: copies of a mesh pushed out along its normals, cut out by a per-pixel noise mask so only speckles remain.
-// Stacked over the solid mesh they give the coat a soft, tufty depth. Offsetting along normals (not scaling about the
-// origin) keeps the shell even on parts whose origin is off-center, like legs pivoting at the hip. alphaTest (not
-// blending) keeps them free of transparency sorting; the outer shell uses a higher threshold, so it is sparser, like fur tips.
-const SHELLS = [0.004, 0.008];
-const furAlpha = () => canvasTexture('furAlpha', 6, 6, (ctx) => {
+// Shell fur: speckled layers just outside a furry mesh give the coat a soft, tufty depth. Both layers are one
+// InstancedMesh that reuses the mesh's own geometry: the vertex shader pushes instance 0 out by SHELLS[0] and
+// instance 1 by SHELLS[1] along the normals, and the fragment shader discards texels of a noise mask below a cutoff
+// that rises with the layer, so the outer layer is sparser, like fur tips. Discarding (not blending) keeps them free of
+// transparency sorting. Only smooth geometry gets shells: on hard edges the split normals would tear the layers apart.
+const SHELLS = [0.004, 0.008], SHELL_CUT = [0.35, 0.6];
+// Nearest filtering and no mipmaps keep the speckles crisp; mip-averaging would blur the mask to an even grey and
+// make the inner layer solid and the outer one vanish
+const furAlpha = () => canvasTexture('furAlpha', 3, 3, (ctx) => {
   const img = ctx.createImageData(64, 64);
   for (let i = 0; i < img.data.length; i += 4) {
     const v = Math.random() * 255;
@@ -762,30 +778,33 @@ const furAlpha = () => canvasTexture('furAlpha', 6, 6, (ctx) => {
     img.data[i + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
-});
-const shellMat = (color, layer) => cached(matCache, `shell${color}${layer}`, () =>
-  new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.05, alphaMap: furAlpha(), alphaTest: 0.35 + layer * 0.25 }));
-// Inflated copies are built once per source geometry and shared by every mesh using it
-const shellGeos = new WeakMap();
-function shellGeometry(geo, layer) {
-  if (!shellGeos.has(geo)) {
-    shellGeos.set(geo, SHELLS.map((offset) => {
-      const g = geo.clone();
-      const pos = g.attributes.position, nor = g.attributes.normal;
-      for (let i = 0; i < pos.count; i++) {
-        pos.setXYZ(i, pos.getX(i) + nor.getX(i) * offset, pos.getY(i) + nor.getY(i) * offset, pos.getZ(i) + nor.getZ(i) * offset);
-      }
-      return g;
-    }));
-  }
-  return shellGeos.get(geo)[layer];
+}, true);
+const glsl = (n) => n.toFixed(4);
+function shellShader(shader) {
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <common>', '#include <common>\nvarying float vShellCut;')
+    .replace('#include <begin_vertex>', `#include <begin_vertex>
+      float shellLayer = float(gl_InstanceID);
+      transformed += objectNormal * mix(${glsl(SHELLS[0])}, ${glsl(SHELLS[1])}, shellLayer);
+      vShellCut = mix(${glsl(SHELL_CUT[0])}, ${glsl(SHELL_CUT[1])}, shellLayer);`);
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <common>', '#include <common>\nvarying float vShellCut;')
+    .replace('#include <alphatest_fragment>', 'if ( diffuseColor.a < vShellCut ) discard;');
 }
+const shellMat = (color) => cached(matCache, 'shell' + color, () => {
+  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.05, alphaMap: furAlpha() });
+  m.onBeforeCompile = shellShader;
+  m.customProgramCacheKey = () => 'furShell';
+  return m;
+});
+// Every shell, so adaptive quality can hide them all on slow devices
+const furShellMeshes = [];
 function furShells(m, color) {
-  SHELLS.forEach((_, layer) => {
-    const shell = new THREE.Mesh(shellGeometry(m.geometry, layer), shellMat(color, layer));
-    shell.receiveShadow = true;
-    m.add(shell);
-  });
+  const shells = new THREE.InstancedMesh(m.geometry, shellMat(color), SHELLS.length);
+  for (let i = 0; i < SHELLS.length; i++) shells.setMatrixAt(i, new THREE.Matrix4());
+  shells.receiveShadow = true;
+  m.add(shells);
+  furShellMeshes.push(shells);
 }
 
 // Curled dog tail: a tapered tube along a spiral that leaves the rump backward, rises and curls forward over the back,
@@ -961,42 +980,83 @@ const BUILDERS = {
     g.add(roof);
     // Lawn disc; dogs stand on its top face, hips one leg length above it
     const LAWN_TOP = 0.035, LEG = 0.12;
-    const fluffGeos = new Map();
     g.add(mesh(new THREE.CylinderGeometry(0.75, 0.75, 0.03, 24), '#a8d5a2', 0.3, LAWN_TOP - 0.015, 0.3));
-    // Shared body, head and four legs; each breed adds its own details on top
-    const dogBase = (color, { width = 0.18, height = 0.16, length = 0.36, round = 0.06, y = 0.18 } = {}) => {
+    // Tiny parts whose shadow would be smaller than a shadow-map texel skip the shadow pass
+    const noShadow = (m) => {
+      m.castShadow = false;
+      return m;
+    };
+    // Shared body, head and four legs; each breed adds its own details on top. Everything that animates goes in
+    // `keep`; the rest is merged by bakeDog. `material` (optional) replaces the plain cached material, e.g. with fur.
+    const dogBase = (color, { width = 0.18, height = 0.16, length = 0.36, round = 0.06, y = 0.18, material } = {}) => {
       const d = new THREE.Group();
-      const body = mesh(rbox(width, height, length, round), color, 0, y, 0);
-      const head = mesh(new THREE.SphereGeometry(0.11, 12, 8), color, 0, 0.3, -0.2);
+      const body = mesh(rbox(width, height, length, round), color, 0, y, 0, material);
+      const head = mesh(sharedGeo('dogHead', () => new THREE.SphereGeometry(0.11, 12, 8)), color, 0, 0.3, -0.2, material);
       d.add(body, head);
+      const legGeo = sharedGeo('dogLeg', () => new THREE.CylinderGeometry(0.025, 0.025, LEG, 5).translate(0, -LEG / 2, 0)); // pivot at the hip
       // Front-left, front-right, back-left, back-right
       const legs = [[-0.06, -0.12], [0.06, -0.12], [-0.06, 0.12], [0.06, 0.12]].map(([x, z]) => {
-        const leg = mesh(new THREE.CylinderGeometry(0.025, 0.025, LEG, 5), color, x, LEG, z);
-        leg.geometry.translate(0, -LEG / 2, 0); // pivot at the hip
+        const leg = mesh(legGeo, color, x, LEG, z, material);
         d.add(leg);
         return leg;
       });
-      return { d, body, head, legs, tailBones: [], update: null };
+      return { d, body, head, legs, keep: new Set(legs), tailBones: [], update: null };
+    };
+    // Merge every static mesh (all but the `keep` subtrees) into one mesh per material and shadow setting, so a dog
+    // costs a handful of draw calls instead of dozens. Fur shells go on afterwards: one set on each merged fur mesh,
+    // where the baked-in scale also makes their thickness even, plus one per kept furry part.
+    const bakeDog = (d, keep) => {
+      d.updateMatrixWorld(true); // d is still at the origin, so each matrixWorld is relative to the dog
+      const statics = [];
+      const walk = (o) => {
+        if (keep.has(o)) return;
+        if (o.isMesh) statics.push(o);
+        o.children.forEach(walk);
+      };
+      d.children.forEach(walk);
+      const batches = new Map();
+      statics.forEach((o) => {
+        const key = `${o.material.uuid}|${o.castShadow}|${o.userData.noShell ?? false}`;
+        if (!batches.has(key)) batches.set(key, { sample: o, geos: [] });
+        // Non-indexed with only the attributes every part has, so geometries of any kind merge
+        const geo = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone()).applyMatrix4(o.matrixWorld);
+        Object.keys(geo.attributes).forEach((name) => { if (!['position', 'normal', 'uv'].includes(name)) geo.deleteAttribute(name); });
+        geo.clearGroups();
+        batches.get(key).geos.push(geo);
+      });
+      statics.forEach((o) => o.removeFromParent());
+      batches.forEach(({ sample, geos }) => {
+        const merged = new THREE.Mesh(mergeGeometries(geos), sample.material);
+        merged.castShadow = sample.castShadow;
+        merged.receiveShadow = true;
+        merged.userData = { fur: sample.userData.fur, noShell: sample.userData.noShell };
+        d.add(merged);
+      });
+      const furry = [];
+      d.traverse((o) => { if (o.isMesh && o.userData.fur && !o.userData.noShell) furry.push(o); });
+      furry.forEach((o) => furShells(o, o.userData.fur));
     };
     const samoyedDog = (color) => {
+      const fur = furMat(color);
       // Deeper, rounder body than the Shiba's, as the thick coat fills it out
-      const dog = dogBase(color, { width: 0.21, height: 0.2, length: 0.38, round: 0.09, y: 0.2 });
-      const { d, body, head, legs } = dog;
+      const dog = dogBase(color, { width: 0.21, height: 0.2, length: 0.38, round: 0.09, y: 0.2, material: fur });
+      const { d, body, head, legs, keep } = dog;
       const shadow = '#efe8dc'; // warm cream for the shaded inside of the tail curl
-      // Cloud-like coat: matte fur material plus speckled shells around every fluffy part
-      const furry = (m) => {
-        m.material = furMat(color);
-        furShells(m, color);
+      // Cloud-like coat: matte fur material, with speckled shells added by bakeDog. Hard-edged parts skip the shells,
+      // whose split normals there would tear the layers apart.
+      const furPart = (m, shells = true) => {
+        m.userData.fur = color;
+        if (!shells) m.userData.noShell = true;
         return m;
       };
       // Smooth, finely tessellated ellipsoids read as soft fluff rather than faceted balls; one geometry per radius
       const fluff = (r, x, y, z, sx = 1, sy = 1, sz = 1) => {
-        const m = mesh(cached(fluffGeos, r, () => new THREE.SphereGeometry(r, 24, 16)), color, x, y, z);
+        const m = furPart(mesh(sharedGeo(`fluff${r}`, () => new THREE.SphereGeometry(r, 24, 16)), color, x, y, z, fur));
         m.scale.set(sx, sy, sz);
-        return furry(m);
+        return m;
       };
-      furry(body);
-      furry(head);
+      furPart(body);
+      furPart(head);
 
       // ---- Ears: thick rounded triangles sunk into the head fur ----
       const earShape = new THREE.Shape();
@@ -1008,14 +1068,16 @@ const BUILDERS = {
       const earGeo = new THREE.ExtrudeGeometry(earShape, { depth: 0.02, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.007, bevelSegments: 3, curveSegments: 8 });
       earGeo.translate(0, 0, -0.01);
       const innerGeo = new THREE.ShapeGeometry(earShape, 8);
+      const eyeGeo = sharedGeo('almondEye', () => new THREE.SphereGeometry(0.013, 12, 8));
       let leftEye, leftRim;
       [-0.05, 0.05].forEach((x) => {
         const side = Math.sign(x);
         const ear = new THREE.Group();
         ear.position.set(x * 0.75, 0.37, -0.19);
         ear.rotation.z = -side * 0.25; // tips lean outward
-        ear.add(furry(mesh(earGeo, color)));
-        const inner = mesh(innerGeo, '#f5e6dc', 0, 0.012, -(0.018 + SHELLS[1] + 0.002)); // half depth + bevel, then past the outer fur shell
+        ear.add(furPart(mesh(earGeo, color, 0, 0, 0, fur), false));
+        // Half depth + bevel, a little out from the ear's front face
+        const inner = noShadow(mesh(innerGeo, '#f5e6dc', 0, 0.012, -(0.018 + SHELLS[1] / 2)));
         inner.scale.setScalar(0.6);
         inner.rotation.y = Math.PI; // the flat shape faces +z; turn it to face forward
         ear.add(inner);
@@ -1023,24 +1085,28 @@ const BUILDERS = {
 
         // ---- Eyes: black almond eyes in a dark rim, with a tiny catch-light ----
         // Outer corners droop for a sleepy, goofy look; both sit just outside the head's outer fur shell
-        const rim = mesh(new THREE.SphereGeometry(0.013, 12, 8), '#1a1a1a', x * 0.9, 0.33, -0.303);
+        const rim = noShadow(mesh(eyeGeo, '#1a1a1a', x * 0.9, 0.33, -0.303));
         rim.scale.set(1.9, 1.05, 0.5);
         rim.rotation.z = -side * 0.2;
-        const eye = mesh(new THREE.SphereGeometry(0.013, 12, 8), '#111111', x * 0.9, 0.33, -0.306, { roughness: 0.2 });
+        const eye = noShadow(mesh(eyeGeo, '#111111', x * 0.9, 0.33, -0.306, { roughness: 0.2 }));
         eye.scale.set(1.5, 0.75, 0.6);
         eye.rotation.z = -side * 0.2;
-        eye.add(mesh(new THREE.SphereGeometry(0.0035, 6, 4), '#ffffff', 0.004, 0.005, -0.011, { emissive: '#ffffff', emissiveIntensity: 0.6 }));
+        eye.add(noShadow(mesh(sharedGeo('catchLight', () => new THREE.SphereGeometry(0.0035, 6, 4)), '#ffffff', 0.004, 0.005, -0.011, { emissive: '#ffffff', emissiveIntensity: 0.6 })));
         d.add(rim, eye);
-        if (x < 0) [leftEye, leftRim] = [eye, rim]; // the dog's own left: it faces -z, so its left is -x
+        if (x < 0) {
+          // The dog's own left: it faces -z, so its left is -x. Kept unmerged so it can wink.
+          [leftEye, leftRim] = [eye, rim];
+          keep.add(eye).add(rim);
+        }
         d.add(fluff(0.05, x * 1.4, 0.27, -0.2)); // puffy cheeks widen the face
       });
 
       // ---- Muzzle: a rounded cone, widened toward the bottom; glossy black leather nose ----
       const MUZZLE = { x: 0, y: 0.27, z: -0.29, r: 0.05, wide: 1.2 };
-      const muzzle = furry(mesh(new THREE.SphereGeometry(MUZZLE.r, 16, 12), color, MUZZLE.x, MUZZLE.y, MUZZLE.z));
+      const muzzle = furPart(mesh(new THREE.SphereGeometry(MUZZLE.r, 16, 12), color, MUZZLE.x, MUZZLE.y, MUZZLE.z, fur));
       muzzle.scale.x = MUZZLE.wide;
       d.add(muzzle);
-      d.add(mesh(new THREE.SphereGeometry(0.02, 10, 8), '#111111', 0, 0.29, -0.335, { roughness: 0.35, metalness: 0.1 }));
+      d.add(noShadow(mesh(new THREE.SphereGeometry(0.02, 10, 8), '#111111', 0, 0.29, -0.335, { roughness: 0.35, metalness: 0.1 })));
       // A point on the muzzle's front surface at (x, y), nudged out past its fur shells so the face details stay clean
       const onMuzzle = (x, y) => {
         const dx = x / MUZZLE.wide, dy = y - MUZZLE.y;
@@ -1055,21 +1121,22 @@ const BUILDERS = {
         const x = -HALF + (i / 10) * 2 * HALF;
         lipPts.push(onMuzzle(x, LIP_Y + K * x * x));
       }
-      d.add(mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(lipPts), 24, 0.0035, 6, false), '#111111', 0, 0, 0, { roughness: 0.5 }));
+      d.add(noShadow(mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(lipPts), 24, 0.0035, 6, false), '#111111', 0, 0, 0, { roughness: 0.5 })));
       // Slightly open mouth just under the lip line, so the tongue comes out from beneath it
       const mouthAt = onMuzzle(0, LIP_Y - 0.008);
-      const mouth = mesh(new THREE.SphereGeometry(0.02, 12, 8), '#4a2a30', 0, mouthAt.y, mouthAt.z + 0.004);
+      const mouth = noShadow(mesh(new THREE.SphereGeometry(0.02, 12, 8), '#4a2a30', 0, mouthAt.y, mouthAt.z + 0.004));
       mouth.scale.set(1.4, 0.5, 0.5);
       d.add(mouth);
       // Flat pink tongue hanging over the lower jaw, hinged inside the lip line so the lip frames its top and sides
       const tongue = new THREE.Group();
       tongue.position.set(0, LIP_Y - 0.004, mouthAt.z + 0.002);
-      const blade = mesh(new THREE.SphereGeometry(0.016, 12, 10), '#ff6b8b', 0, -0.022, 0);
+      const blade = noShadow(mesh(new THREE.SphereGeometry(0.016, 12, 10), '#ff6b8b', 0, -0.022, 0));
       blade.scale.set(1, 1.5, 0.35);
       tongue.add(blade);
       const TONGUE_REST = 0.35;
       tongue.rotation.x = TONGUE_REST; // resting angle, forward over the lower jaw; panting swings around it
       d.add(tongue);
+      keep.add(tongue).add(body); // the tongue pants and the body breathes
 
       // Left-eye wink every 3–8 s: a scheduled timer rather than a per-frame dice roll, so it never flickers
       const WINK = 0.3;
@@ -1095,20 +1162,22 @@ const BUILDERS = {
       };
 
       // ---- Ruff: one smooth mane wrapping the neck and framing the face, over a deep chest ----
-      const ruff = new THREE.Group();
-      ruff.add(
+      d.add(
         fluff(0.11, 0, 0.25, -0.14, 1, 0.9, 0.7),
         fluff(0.085, 0, 0.24, -0.19, 0.9, 1.1, 0.8), // raised so it tucks up under the chin
       );
-      d.add(ruff);
 
       // ---- Legs: thick fluffy upper leg, slim lower leg, small flat paw ----
-      const upperLeg = new THREE.CapsuleGeometry(0.045, 0.02, 6, 16);
+      const upperLeg = sharedGeo('samoyedUpperLeg', () => new THREE.CapsuleGeometry(0.045, 0.02, 6, 16));
+      // Flattening baked into the shared geometry keeps the paw's fur shells evenly thick
+      const paw = sharedGeo('samoyedPaw', () => new THREE.SphereGeometry(0.03, 24, 16).scale(1, 0.5, 1));
       legs.forEach((leg) => {
-        furry(leg);
+        furPart(leg, false); // a 5-sided cylinder: hard edges
         // Upper leg centered on the hip so the slim lower leg shows between it and the small, flat paw
-        const upper = furry(mesh(upperLeg, color, 0, 0, 0.005));
-        leg.add(upper, fluff(0.03, 0, -LEG + 0.015, -0.01, 1, 0.5, 1));
+        leg.add(
+          furPart(mesh(upperLeg, color, 0, 0, 0.005, fur)),
+          furPart(mesh(paw, color, 0, -LEG + 0.015, -0.01, fur)),
+        );
       });
 
       // ---- Tail: a flattened, widened plume lying over the back ----
@@ -1116,12 +1185,13 @@ const BUILDERS = {
       const plume = curlyTail(shadow, color, TAIL);
       plume.tail.position.set(0, 0.27, 0.15);
       d.add(plume.tail);
+      keep.add(plume.tail);
       dog.tailBones = plume.bones;
       return dog;
     };
     const shibaDog = (color) => {
       const dog = dogBase(color);
-      const { d, legs } = dog;
+      const { d, legs, keep } = dog;
       const cream = '#ecd9b0';
       [-0.05, 0.05].forEach((x) => {
         // Four-sided cones turned so a flat face points forward; the cream inner ear sits just in front of it
@@ -1129,15 +1199,15 @@ const BUILDERS = {
         const inner = mesh(new THREE.ConeGeometry(0.035, 0.07, 4), cream, x * 1.1, 0.395, -0.214);
         ear.rotation.y = inner.rotation.y = Math.PI / 4;
         d.add(ear, inner);
-        d.add(mesh(new THREE.SphereGeometry(0.015, 6, 4), '#1f2328', x * 0.9, 0.33, -0.3)); // eye
-        const brow = mesh(new THREE.SphereGeometry(0.014, 8, 6), cream, x * 0.9, 0.365, -0.285);
+        d.add(noShadow(mesh(sharedGeo('shibaEye', () => new THREE.SphereGeometry(0.015, 6, 4)), '#1f2328', x * 0.9, 0.33, -0.3))); // eye
+        const brow = noShadow(mesh(sharedGeo('shibaBrow', () => new THREE.SphereGeometry(0.014, 8, 6)), cream, x * 0.9, 0.365, -0.285));
         brow.scale.x = 1.4;
         d.add(brow);
       });
       // Cream lower front quarter of the head, so the face splits in half at the eyes; muzzle and nose on top
       d.add(mesh(new THREE.SphereGeometry(0.113, 14, 8, Math.PI, Math.PI, Math.PI / 2, Math.PI / 2), cream, 0, 0.3, -0.2));
       d.add(mesh(new THREE.SphereGeometry(0.055, 10, 6), cream, 0, 0.27, -0.29));
-      d.add(mesh(new THREE.SphereGeometry(0.022, 6, 4), '#1f2328', 0, 0.29, -0.34));
+      d.add(noShadow(mesh(new THREE.SphereGeometry(0.022, 6, 4), '#1f2328', 0, 0.29, -0.34)));
       // Cream chest and belly showing under the coat
       d.add(mesh(new THREE.SphereGeometry(0.08, 10, 8), cream, 0, 0.19, -0.14));
       d.add(mesh(rbox(0.16, 0.08, 0.3, 0.04), cream, 0, 0.13, 0.01));
@@ -1146,17 +1216,15 @@ const BUILDERS = {
       rump.scale.z = 0.6;
       d.add(rump);
       // Easter egg: a tiny brown * on the rump patch, only visible when zoomed in; three crossed bars half sunk into the surface
+      const barGeo = new THREE.BoxGeometry(0.014, 0.003, 0.003);
       [0, 1, 2].forEach((k) => {
-        const bar = mesh(new THREE.BoxGeometry(0.014, 0.003, 0.003), '#6b4226', 0, 0.18, 0.1855);
+        const bar = noShadow(mesh(barGeo, '#6b4226', 0, 0.18, 0.1855));
         bar.rotation.z = (k * Math.PI) / 3 + Math.PI / 2;
         d.add(bar);
       });
       // Cream paws resting on the leg tip, their bottom level with the ground
-      legs.forEach((leg) => {
-        const paw = mesh(new THREE.SphereGeometry(0.032, 8, 6), cream, 0, -LEG + 0.019, -0.01);
-        paw.scale.y = 0.6;
-        leg.add(paw);
-      });
+      const paw = sharedGeo('shibaPaw', () => new THREE.SphereGeometry(0.032, 8, 6).scale(1, 0.6, 1));
+      legs.forEach((leg) => leg.add(mesh(paw, cream, 0, -LEG + 0.019, -0.01)));
       // Collar tilts back so its high point rests just above the back, low point on the chest
       const collar = mesh(new THREE.TorusGeometry(0.1, 0.011, 6, 20), '#b8322a', 0, 0.22, -0.15);
       collar.rotation.x = 1.0;
@@ -1164,6 +1232,7 @@ const BUILDERS = {
       const curl = curlyTail(color, cream);
       curl.tail.position.set(0, 0.25, 0.15); // root sits inside the top of the rump
       d.add(curl.tail);
+      keep.add(curl.tail);
       dog.tailBones = curl.bones;
       return dog;
     };
@@ -1171,7 +1240,8 @@ const BUILDERS = {
     [[shibaDog, '#d98a3d', 0.6, 0], [samoyedDog, '#f8f7f2', 0.35, Math.PI]].forEach(([build, color, r, phase]) => {
       const pivot = new THREE.Group();
       pivot.position.set(0.3, LAWN_TOP, 0.3);
-      const { d, legs, tailBones, update } = build(color);
+      const { d, legs, keep, tailBones, update } = build(color);
+      bakeDog(d, keep);
       d.position.x = r;
       pivot.add(d);
       g.add(pivot);
@@ -1931,6 +2001,9 @@ const GREY = new THREE.Color('#d9d9d4');
 function dimOf(m) {
   if (!dimMats.has(m)) {
     const d = m.clone();
+    // clone() drops shader hooks; keep them so dimmed fur shells still inflate and cut
+    d.onBeforeCompile = m.onBeforeCompile;
+    d.customProgramCacheKey = m.customProgramCacheKey;
     d.color.lerp(GREY, 0.55);
     if (d.emissive) d.emissiveIntensity *= 0.3;
     dimMats.set(m, d);
@@ -2701,9 +2774,13 @@ function watchPerf(dt) {
     return;
   }
   perf.level++;
-  if (perf.level === 1) renderer.setPixelRatio(1);
-  else {
+  if (perf.level === 1) {
+    renderer.setPixelRatio(1);
+    furShellMeshes.forEach((s) => { s.visible = false; });
+  } else {
     renderer.shadowMap.enabled = false;
+    // Fur bump detail is invisible at a distance yet costs per-fragment derivatives; drop it with the shadows
+    [...matCache.values(), ...dimMats.values()].forEach((m) => { if (m.bumpMap) m.bumpMap = null; });
     scene.traverse((o) => { if (o.material) [].concat(o.material).forEach((m) => { m.needsUpdate = true; }); });
     dimMats.forEach((m) => { m.needsUpdate = true; });
     perf.settled = true;
