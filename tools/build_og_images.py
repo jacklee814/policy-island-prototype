@@ -1,6 +1,7 @@
 """Render og/<item>.png: one 1200x630 link-preview card per policy and landmark,
 og/line/<item>.png: the card's 3D snapshot alone, for the LINE Flex card's hero,
-and hero.jpg: a still panorama the page shows while the 3D scene loads.
+hero.jpg: a still panorama the page shows while the 3D scene loads, and og.png:
+the site cover shown when the home page is shared.
 
 The cards include a 3D snapshot, so the app draws them itself (index.html?og=policy-12)
 and this script screenshots each one with agent-browser. Run it after changing the
@@ -25,6 +26,8 @@ source = (ROOT / "index.html").read_text(encoding="utf-8")
 n_policies = len(re.findall(r"short: '[^']+', title: '", source))
 n_spots = len(re.findall(r"name: '[^']+', map: '", source))
 items = [f"policy-{n:02d}" for n in range(1, n_policies + 1)] + [f"spot-{n:02d}" for n in range(1, n_spots + 1)]
+# "cover" is the site cover; it is saved as og.png at the root instead of og/cover.png
+items.append("cover")
 
 
 def browser(*args):
@@ -54,6 +57,10 @@ try:
             time.sleep(0.5)
         else:
             raise SystemExit(f"timed out rendering {key}")
+        if key == "cover":
+            browser("screenshot", str(ROOT / "og.png"))
+            print("rendered og.png")
+            continue
         browser("screenshot", str(out / f"{key}.png"))
         subprocess.run(
             ["sips", "-c", str(CROP_H), str(CROP_W), "--cropOffset", str(CROP_Y), str(CROP_X), str(out / f"{key}.png"), "--out", str(line_out / f"{key}.png")],

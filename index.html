@@ -3167,7 +3167,7 @@ function drawLines(ctx, lines, x, y, lineHeight, maxLines) {
 
 // Render a target from a fixed angle and copy a centered crop straight off the WebGL canvas.
 // This must stay synchronous: the drawing buffer is only readable until the browser composites the frame.
-function drawShot(ctx, target, x, y, w, h) {
+function drawShot(ctx, target, x, y, w, h, offset = new THREE.Vector3(6, 7.5, 9.5)) {
   const canvas = renderer.domElement;
   const aspect = canvas.width / canvas.height;
   // Crop the largest w:h rectangle from the center of the canvas
@@ -3175,7 +3175,7 @@ function drawShot(ctx, target, x, y, w, h) {
   // Widen the camera so the crop itself spans a 35° vertical view
   const vFov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(17.5)) * (canvas.height / sh)));
   const shotCam = new THREE.PerspectiveCamera(vFov, aspect, 0.1, 200);
-  shotCam.position.copy(target).add(new THREE.Vector3(6, 7.5, 9.5));
+  shotCam.position.copy(target).add(offset);
   shotCam.lookAt(target);
   const fog = [scene.fog.near, scene.fog.far];
   [scene.fog.near, scene.fog.far] = [30, 140];
@@ -3350,13 +3350,70 @@ function fitLines(ctx, text, width, weight, sizes) {
 }
 
 // Cover the page with the finished card at 1200×630 so the build can screenshot it
+// Site cover (og.png): the pitch on the left, the ring of policy islands on the right. Shared links show it at
+// small sizes and some apps crop the sides, so the text stays large and inside the middle 1000 px.
+function makeCoverCanvas() {
+  const W = 1200, H = 630;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#f6efe4';
+  ctx.fillRect(0, 0, W, H);
+  // The whole ring of islands, nudged so it sits right of the fade
+  const SHOT_X = 470;
+  drawShot(ctx, ISLANDS_TARGET.clone().add(new THREE.Vector3(-1.2, 0, 0.6)), SHOT_X, 0, W - SHOT_X, H, new THREE.Vector3(4, 23, 21));
+  // Soft fade from the text panel into the picture
+  const fade = ctx.createLinearGradient(SHOT_X, 0, SHOT_X + 230, 0);
+  fade.addColorStop(0, '#f6efe4');
+  fade.addColorStop(1, 'rgba(246, 239, 228, 0)');
+  ctx.fillStyle = fade;
+  ctx.fillRect(SHOT_X, 0, 230, H);
+
+  const X = 100;
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = '#e0663d';
+  ctx.beginPath();
+  ctx.moveTo(X + 14, 104);
+  [[28, 112], [28, 128], [14, 136], [0, 128], [0, 112]].forEach(([dx, dy]) => ctx.lineTo(X + dx, dy));
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#5b6370';
+  ctx.font = `600 26px ${STORY_FONT}`;
+  ctx.fillText('2026 新北市長政見', X + 44, 106);
+  ctx.fillStyle = '#1f2328';
+  ctx.font = `800 104px ${STORY_FONT}`;
+  ctx.fillText('新北政見島', X - 6, 160);
+  ctx.fillStyle = '#3d434b';
+  ctx.font = `500 38px ${STORY_FONT}`;
+  ctx.fillText('蘇巧慧 14 項政見', X, 300);
+  ctx.fillText('一張地圖看懂', X, 352);
+  // What people can do, as chips
+  let x = X;
+  ctx.font = `600 24px ${STORY_FONT}`;
+  [['找我的政見', '#0f766e'], ['大字版', '#be5734'], ['一鍵分享', '#3b77c4']].forEach(([label, color]) => {
+    const w = ctx.measureText(label).width + 36;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.roundRect(x, 438, w, 48, 24);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, x + 18, 449);
+    x += w + 12;
+  });
+  ctx.fillStyle = '#7a7f87';
+  ctx.font = `400 22px ${STORY_FONT}`;
+  ctx.fillText('ntpc-island.github.io · 非官方整理', X, 528);
+  return c;
+}
+
 function renderOgCard() {
   const [kind, num] = ogParam.split('-');
   const i = Number(num) - 1;
-  if (!(kind === 'policy' ? POLICIES[i] : kind === 'spot' ? SPOTS[i] : null)) return;
+  if (kind !== 'cover' && !(kind === 'policy' ? POLICIES[i] : kind === 'spot' ? SPOTS[i] : null)) return;
   const img = new Image();
   img.onload = () => { window.ogReady = true; };
-  img.src = makeOgCanvas(kind, i).toDataURL('image/png');
+  img.src = (kind === 'cover' ? makeCoverCanvas() : makeOgCanvas(kind, i)).toDataURL('image/png');
   img.style.cssText = 'position:fixed;left:0;top:0;width:1200px;height:630px;z-index:100';
   document.body.appendChild(img);
 }
