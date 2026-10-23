@@ -10,6 +10,9 @@
 - index.html SEO blocks: JSON-LD structured data and a <noscript> text version.
 - index.html district data: which official policy pages name each of the 29
   districts, taken from the official text saved by tools/check_source.py.
+- updates/: the release notes, one section per day, from tools/releases.json
+  (written for visitors, newest first); the latest entry is also embedded in
+  index.html so returning visitors hear about what is new.
 - sitemap.xml listing every indexable page.
 
 Re-run after editing the data in index.html:
@@ -88,7 +91,7 @@ GA_SNIPPET = f"""<script async src="https://www.googletagmanager.com/gtag/js?id=
 
 HEADER = """<header class="site-header">
   <a class="brand" href="/">新北政見島</a>
-  <nav><a href="/">3D 地圖</a><a href="/policy/">政見一覽</a><a href="/about/">關於本站</a></nav>
+  <nav><a href="/">3D 地圖</a><a href="/policy/">政見一覽</a><a href="/updates/">更新紀錄</a><a href="/about/">關於本站</a></nav>
   <div class="textsize" role="group" aria-label="字級">
     <span>字級</span><button type="button" data-size-btn="m">標準</button><button type="button" data-size-btn="l">大</button><button type="button" data-size-btn="xl">特大</button>
   </div>
@@ -279,6 +282,36 @@ write("about/", text_page("about/", "關於新北政見島｜資料來源與非�
 written.append("about/")
 
 
+# ---------- release notes ----------
+releases = json.loads((ROOT / "tools" / "releases.json").read_text(encoding="utf-8"))
+releases.sort(key=lambda r: r["date"], reverse=True)
+
+
+def zh_date(iso):
+    d = datetime.date.fromisoformat(iso)
+    return f"{d.year} 年 {d.month} 月 {d.day} 日"
+
+
+release_sections = "\n".join(
+    f"""<section class="release" id="{r['date']}">
+<h2><time datetime="{r['date']}">{zh_date(r['date'])}</time><span>{e(r['title'])}</span></h2>
+<ul class="release-items">
+{''.join(f'<li><b>{e(it["title"])}</b>{e(it["desc"])}</li>' for it in r['items'])}
+</ul>
+</section>"""
+    for r in releases
+)
+updates_body = f"""<h1>更新紀錄</h1>
+<p class="lead">新北政見島每天的新功能與改進，最新的在最上面。</p>
+{release_sections}
+<p class="note">本站為非官方整理，政見內容以<a href="{SOURCE_URL}">官方網站</a>為準。</p>"""
+latest = releases[0]
+write("updates/", text_page("updates/", "更新紀錄｜新北政見島", f"新北政見島的新功能與改進。最新更新（{latest['date']}）：{latest['title']}。", updates_body, [("更新紀錄", None)]))
+written.append("updates/")
+release_block = '<script type="application/json" id="release-data">' + json.dumps(
+    {"date": latest["date"], "title": latest["title"]}, ensure_ascii=False) + "</script>"
+
+
 # ---------- share pages ----------
 def share_page(slug, kind, name, title, description):
     target = "../#" + quote(f"{kind}/{name}", safe="/")
@@ -407,12 +440,13 @@ district_block = '<script type="application/json" id="district-data">' + json.du
 
 source = fill(source, "jsonld", jsonld_block)
 source = fill(source, "noscript", noscript_block)
+source = re.sub(r"(<!-- data:release:start -->\n).*?(<!-- data:release:end -->)", lambda m: m.group(1) + release_block + "\n" + m.group(2), source, flags=re.S)
 source = re.sub(r"(<!-- data:districts:start -->\n).*?(<!-- data:districts:end -->)", lambda m: m.group(1) + district_block + "\n" + m.group(2), source, flags=re.S)
 index_path.write_text(source, encoding="utf-8")
 
 
 # ---------- sitemap ----------
-urls = [SITE] + [SITE + p for p in ["policy/", "about/"] + [w for w in written if w not in ("policy/", "about/")]]
+urls = [SITE] + [SITE + p for p in ["policy/", "updates/", "about/"] + [w for w in written if w not in ("policy/", "updates/", "about/")]]
 (ROOT / "sitemap.xml").write_text(
     '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
     + "".join(f"  <url><loc>{u}</loc><lastmod>{TODAY}</lastmod></url>\n" for u in urls)

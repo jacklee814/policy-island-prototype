@@ -50,3 +50,14 @@ python3 tools/build_og_images.py && python3 tools/build_static.py
 
 `source_snapshot.json` 的官方原文也是「地區」分頁的資料來源：`build_static.py` 會找出每項政見原文裡點名了哪些行政區。
 
+## 更新紀錄
+
+網站上的「更新紀錄」（`/updates/`）由 `tools/releases.json` 產生，一天一筆、最新的放最上面。內容寫給一般訪客看：說明大家能做什麼，不寫技術細節。
+
+新增一天的更新：
+
+1. 在 `tools/releases.json` 最前面加一筆 `{ "date", "title", "items": [{ "title", "desc" }] }`
+2. `python3 tools/build_static.py`
+
+最新一筆也會嵌進首頁：之前來過、但還沒看過這次更新的訪客，進站時會看到一行「10/23 更新：…」的提示。
+
