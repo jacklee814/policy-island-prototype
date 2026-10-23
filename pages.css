@@ -6,7 +6,7 @@
   --muted: #5b6370;
   --card: #fffdf8;
   --line: #e3dccd;
-  --accent: #e0663d;
+  --accent: #b8492a; /* 4.7:1 on the page background; the app's brighter #e0663d is too light for small text */
 }
 html { font-size: 16px; -webkit-text-size-adjust: 100%; }
 html[data-size="l"] { font-size: 19px; }

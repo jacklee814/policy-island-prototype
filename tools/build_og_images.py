@@ -1,5 +1,6 @@
 """Render og/<item>.png: one 1200x630 link-preview card per policy and landmark,
-and og/line/<item>.png: the card's 3D snapshot alone, for the LINE Flex card's hero.
+og/line/<item>.png: the card's 3D snapshot alone, for the LINE Flex card's hero,
+and hero.jpg: a still panorama the page shows while the 3D scene loads.
 
 The cards include a 3D snapshot, so the app draws them itself (index.html?og=policy-12)
 and this script screenshots each one with agent-browser. Run it after changing the
@@ -60,6 +61,21 @@ try:
             check=True,
         )
         print("rendered", key)
+    # Still panorama without any UI, shown by index.html while the 3D scene loads
+    browser("set", "viewport", "1600", "1000")
+    browser("open", f"http://127.0.0.1:{PORT}/")
+    browser("eval", "localStorage.setItem('islandHintSeen', '1'); localStorage.setItem('releaseSeen', '9999-12-31')")
+    browser("open", f"http://127.0.0.1:{PORT}/")
+    for _ in range(60):
+        if "true" in browser("eval", "document.getElementById('loading').classList.contains('done')"):
+            break
+        time.sleep(0.5)
+    time.sleep(1.5)
+    browser("eval", "['header', 'footer', '#labels', '.scrim', '#toast', '#loading'].forEach((q) => { const el = document.querySelector(q); if (el) el.style.display = 'none'; })")
+    browser("screenshot", str(out / "hero.png"))
+    subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "72", str(out / "hero.png"), "--out", str(ROOT / "hero.jpg")], capture_output=True, check=True)
+    (out / "hero.png").unlink()
+    print("rendered hero.jpg")
 finally:
     subprocess.run(["agent-browser", "--session", SESSION, "close"], capture_output=True)
     server.shutdown()

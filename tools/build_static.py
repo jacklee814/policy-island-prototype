@@ -64,6 +64,16 @@ def og_image(key):
     return f"{SITE}og/{key}.png" if (ROOT / "og" / f"{key}.png").exists() else OG_IMAGE
 
 
+def readable_bg(hex_color):
+    """Darken a colour until white text on it reaches 4.5:1 (same rule as readableBg in index.html)."""
+    rgb = [int(hex_color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    lum = lambda c: sum(w * (v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4) for w, v in zip((0.2126, 0.7152, 0.0722), c))
+    k = 1.0
+    while k > 0.4 and 1.05 / (lum([v * k for v in rgb]) + 0.05) < 4.5:
+        k -= 0.03
+    return "#" + "".join(f"{round(v * k * 255):02x}" for v in rgb)
+
+
 def page_path(kind, name):
     return f"{kind}/{quote(name)}/"
 
@@ -203,7 +213,7 @@ for n, p in enumerate(policies):
     grp = groups[p["group"]]
     prev_p, next_p = policies[n - 1], policies[(n + 1) % len(policies)]
     path = page_path("policy", p["short"])
-    body = f"""<span class="tag" style="background:{grp['color']}">{e(grp['name'])}</span>
+    body = f"""<span class="tag" style="background:{readable_bg(grp['color'])}">{e(grp['name'])}</span>
 <h1>{e(p['title'])}</h1>
 <p class="lead">{e(p['summary'])}</p>
 <h2>政見重點</h2>

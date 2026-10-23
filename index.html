@@ -18,6 +18,7 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="preload" as="image" href="hero.jpg" fetchpriority="high">
 <!-- seo:jsonld:start -->
 <script type="application/ld+json">
 {
@@ -284,6 +285,11 @@
   header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
   header button { pointer-events: auto; flex: none; }
   .actions { display: flex; gap: 8px; flex: none; }
+  #follow-toggle { display: inline-flex; align-items: center; gap: 4px; }
+  @media (max-width: 400px) {
+    #follow-toggle .txt { display: none; }
+    #follow-toggle .cam { display: block !important; width: 18px; height: 18px; }
+  }
   .legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .legend button {
     pointer-events: auto; display: inline-flex; align-items: center; gap: 5px; flex: none;
@@ -297,13 +303,28 @@
     position: fixed; left: 0; right: 0; top: 0; height: 128px; pointer-events: none;
     background: linear-gradient(var(--bg) 45%, rgba(227, 239, 242, 0));
   }
+  /* A still panorama shows at once while the 3D scene loads behind it */
   #loading {
-    position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 14px; background: var(--bg); color: var(--muted); font-size: 14px; transition: opacity .4s;
+    position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    gap: 10px; padding-bottom: calc(40px + env(safe-area-inset-bottom)); background: var(--bg); color: var(--muted); font-size: 14px; transition: opacity .4s;
   }
+  #loading img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #loading .pill {
+    position: relative; display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-radius: 999px;
+    background: rgba(255, 253, 248, .94); color: var(--ink); box-shadow: 0 4px 14px rgba(0, 0, 0, .12);
+  }
+  /* Readable right away (it is also the page's largest early text, which browsers count as the main content) */
+  #loading .intro {
+    position: relative; margin-bottom: auto; margin-top: calc(56px + env(safe-area-inset-top)); padding: 16px 22px;
+    border-radius: 16px; background: rgba(255, 253, 248, .94); text-align: center; color: var(--ink);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .12);
+  }
+  /* One block of text, so browsers measure it as one element */
+  #loading .intro { font-size: 16px; line-height: 1.6; color: var(--muted); }
+  #loading .intro b { font-size: 32px; line-height: 1.5; color: var(--ink); }
   #loading.done { opacity: 0; pointer-events: none; }
   #loading .hex {
-    width: 44px; height: 50px; background: var(--accent);
+    width: 18px; height: 20px; background: var(--accent);
     clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); animation: spin 1.4s ease-in-out infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -395,6 +416,19 @@
   .legend .highlight-chip { color: var(--ink); border-color: var(--ink); font-weight: 600; }
   .legend .highlight-chip[hidden] { display: none; }
   #card .meta { margin: -6px 0 12px; font-size: 12px; color: var(--muted); }
+  #card .tag { display: inline-flex; align-items: center; gap: 5px; }
+  .gicon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; flex: none; }
+  .legend .gicon { width: 13px; height: 13px; }
+  #card .keypoint {
+    margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: #fff3e6;
+    color: var(--ink); font-weight: 600; line-height: 1.5;
+  }
+  #card .keypoint small { display: block; margin-bottom: 2px; font-size: 12px; font-weight: 600; color: #a8401f; }
+  #card .more { margin: 0 0 14px; }
+  #card .more-title { margin: 0 0 6px; font-size: 12px; color: var(--muted); }
+  #card .chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  #card .chips button { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; font-size: 13px; border-radius: 999px; }
+  #card .chips .mark[aria-pressed="true"] { background: #fde7e1; border-color: #e0663d; color: #a8401f; }
   #card .meta a { color: inherit; }
   .index-note { margin: 0; padding: 8px 16px 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.5; }
   #toast {
@@ -439,6 +473,7 @@
     header p { grid-area: sub; margin: 0; font-size: 12px; }
     header .actions { grid-area: actions; gap: 6px; }
     header .actions button { padding: 7px 10px; font-size: 14px; }
+    #follow-toggle .cam { display: none; }
     .legend {
       grid-area: legend; margin: 0; pointer-events: auto;
       flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
@@ -455,13 +490,18 @@
     #card li + li { margin-top: 5px; }
     #card .source { margin-bottom: 10px; }
     #card .share { margin-bottom: 12px; }
+    /* Phones: the key point stands in for the summary, and the related chips need no heading */
+    #card .summary, #card .more-title { display: none; }
+    #card .keypoint { padding: 8px 10px; }
+    #card .more { margin-bottom: 10px; }
     #index { left: 0; right: 0; top: auto; bottom: 0; width: auto; height: 72%; border-radius: 16px 16px 0 0; }
     .label { font-size: 11px; padding: 3px 8px; }
     footer { display: none; }
   }
   /* Short phones (e.g. iPhone SE): tighter type so the whole card fits without scrolling */
   @media (max-width: 640px) and (max-height: 720px) {
-    #card { max-height: 76%; }
+    #card { max-height: 78%; }
+    #card .meta { margin-bottom: 8px; }
     #card h2 { font-size: 18px; }
     #card p, #card ul { font-size: 13px; line-height: 1.4; }
     #card li + li { margin-top: 3px; }
@@ -477,7 +517,10 @@
 </script>
 </head>
 <body>
-<div id="loading" role="status"><div class="hex"></div><span id="loading-text">新北政見島載入中…</span></div>
+<div id="loading" role="status"><img src="hero.jpg" alt="" fetchpriority="high">
+  <p class="intro"><b>新北政見島</b><br>蘇巧慧 2026 新北市長<br>14 項政見，一張地圖看懂</p>
+  <div class="pill"><div class="hex"></div><span id="loading-text">3D 地圖載入中…</span></div>
+</div>
 <script>
   // If the 3D module never starts (CDN blocked, old browser), say so instead of spinning forever
   setTimeout(() => {
@@ -570,7 +613,7 @@
   </div>
   <div class="actions">
     <button id="index-toggle" type="button" aria-expanded="false" aria-controls="index">☰ 清單</button>
-    <button id="follow-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="follow-menu">跟拍</button>
+    <button id="follow-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="follow-menu" aria-label="跟拍"><svg class="gicon cam" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="4.5" width="9" height="7" rx="1.5"/><path d="m10.5 7 4-2.2v6.4l-4-2.2"/></svg><span class="txt">跟拍</span></button>
     <button id="islands-view" type="button">政見島</button>
     <button id="home" type="button">全景</button>
   </div>
@@ -716,6 +759,34 @@ const POLICIES = [
     items: ['微型創業一條龍加速器、職涯導師制', '青農創業貸款免息額度提高（一般青農 200 萬→500 萬）', '技術士證照獎勵金翻倍', '活化閒置空間為青創基地，定期舉辦青年黑客松', '心理健康「3+3」，新北加碼 3 次免費心理諮商'],
   },
 ];
+// Small line icons per category, drawn in currentColor
+const GROUP_ICONS = {
+  care: '<path d="M8 13.5S2 10 2 5.8A3.2 3.2 0 0 1 8 4a3.2 3.2 0 0 1 6 1.8C14 10 8 13.5 8 13.5z"/>',
+  tourism: '<path d="M1.5 13 6 5l3 5 2-3 3.5 6z"/>',
+  work: '<rect x="2" y="5" width="12" height="8" rx="1.5"/><path d="M6 5V3.5h4V5M2 8.5h12"/>',
+  city: '<path d="M3 14V2h7v12M10 7h3v7M1.5 14h13M5 5h1M7.5 5h1M5 8h1M7.5 8h1M5 11h1M7.5 11h1"/>',
+  culture: '<path d="M2 3.5h4.5A1.5 1.5 0 0 1 8 5v8.5A1.5 1.5 0 0 0 6.5 12H2zM14 3.5H9.5A1.5 1.5 0 0 0 8 5v8.5A1.5 1.5 0 0 1 9.5 12H14z"/>',
+};
+const groupIcon = (key) => `<svg class="gicon" viewBox="0 0 16 16" aria-hidden="true">${GROUP_ICONS[key]}</svg>`;
+
+// White text needs 4.5:1 contrast; darken a category colour until a tag in it reaches that
+function readableBg(hex) {
+  const rgb = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const lum = (c) => c.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
+    .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+  let k = 1;
+  while (k > 0.4 && 1.05 / (lum(rgb.map((v) => v * k)) + 0.05) < 4.5) k -= 0.03;
+  return '#' + rgb.map((v) => Math.round(v * k * 255).toString(16).padStart(2, '0')).join('');
+}
+
+// The one item of each policy that says most concretely what it does for people; shown first on its card
+const KEY_POINTS = {
+  新皇冠海岸: '潛艦博物館', 七大教育: '營養午餐', 產業升級: 'AI 算力中心', 勞工權益: '煤礦工', 牙齒口腔: '假牙',
+  毛孩照顧: '終身全額補助', 三大長照: '出院後', 鑽石山城: '台車', 原住民族: '假牙', 四大客家: '伯公照護站',
+  家庭照顧: '虧損補助', 長幼福利: '敬老卡', 都更住宅: '青年育兒宅', 青年支持: '心理健康',
+};
+const keyPointOf = (p) => p.items.find((t) => t.includes(KEY_POINTS[p.short])) ?? p.items[0];
+
 const policyUrl = (p) => `https://chiao.tw/policies/${encodeURIComponent(p.slug)}`;
 
 // ---------- Renderer / scene ----------
@@ -749,6 +820,10 @@ Object.assign(sun.shadow.camera, { left: -28, right: 28, top: 28, bottom: -28, n
 sun.shadow.bias = -0.0005;
 scene.add(sun);
 
+
+// Building the scene takes a few hundred ms on phones; awaiting a macrotask between phases splits that into
+// several short tasks, so the page stays responsive and the still panorama paints first
+const yieldToBrowser = () => new Promise((resolve) => setTimeout(resolve));
 
 // ---------- Model kit ----------
 const matCache = new Map();
@@ -1472,6 +1547,8 @@ const BUILDERS = {
   },
 };
 
+await yieldToBrowser();
+
 // ---------- Islands ----------
 const R = 2.2, H = 0.7, GAP = 1.13;
 
@@ -1635,8 +1712,10 @@ const legendEl = document.getElementById('legend');
 legendEl.innerHTML = '<button type="button" class="finder-chip" data-finder>✦ 找我的政見</button>'
   + '<button type="button" class="highlight-chip" data-clear-highlight hidden></button>'
   + Object.entries(GROUPS)
-    .map(([key, grp]) => `<button type="button" data-filter="${key}" aria-pressed="false"><i style="background:${grp.color}"></i>${grp.name}</button>`)
+    .map(([key, grp]) => `<button type="button" data-filter="${key}" aria-pressed="false"><span style="color:${readableBg(grp.color)};display:inline-flex">${groupIcon(key)}</span>${grp.name}</button>`)
     .join('') + '<button type="button" data-filter="spot" aria-pressed="false"><span class="spot-key">◆</span>新北景點</button>';
+
+await yieldToBrowser();
 
 // ---------- New Taipei landmarks (decorative islets outside the ring) ----------
 function rod(g, a, b, r, color) {
@@ -1885,6 +1964,8 @@ const spots = SPOTS.map((s, k) => {
   return { g, label };
 });
 
+await yieldToBrowser();
+
 // ---------- Environment: sea, coastline, mountains, clouds ----------
 // Same angle convention as SPOTS; the sea opens to the north and east like New Taipei's coast
 const SEA_FROM = -75, SEA_TO = 125;
@@ -1978,6 +2059,8 @@ function driftClouds(dt) {
 }
 driftClouds(0);
 animators.push((t, dt) => driftClouds(dt));
+
+await yieldToBrowser();
 
 // ---------- People ----------
 const PEOPLE = [
@@ -2343,15 +2426,38 @@ function openCard() {
   cardBody.querySelector('h2').focus({ preventScroll: true });
 }
 
+// Next step after reading a policy: mark it as important, or jump to a related one (the finder's picks first,
+// then the same category, then the following policies)
+function relatedTo(i) {
+  const picks = [...(finderSet ?? [])].filter((k) => k !== i);
+  const same = POLICIES.flatMap((p, k) => (k !== i && p.group === POLICIES[i].group ? [k] : []));
+  const next = POLICIES.map((_, k) => (i + 1 + k) % POLICIES.length).filter((k) => k !== i);
+  return [...new Set([...picks, ...same, ...next])].slice(0, 3);
+}
+const importantSet = () => {
+  try { return new Set(JSON.parse(localStorage.getItem('important') || '[]')); } catch { return new Set(); }
+};
+function moreFor(i) {
+  const marked = importantSet().has(POLICIES[i].short);
+  return `<div class="more">
+      <p class="more-title">你可能也關心</p>
+      <div class="chips">
+        <button type="button" class="mark" aria-pressed="${marked}">${marked ? '♥ 已標記重要' : '♡ 這對我重要'}</button>
+        ${relatedTo(i).map((k) => `<button type="button" data-rec="${k}" style="color:${readableBg(GROUPS[POLICIES[k].group].color)}">${groupIcon(POLICIES[k].group)}${POLICIES[k].short}</button>`).join('')}
+      </div>
+    </div>`;
+}
+
 function select(i) {
   selected = i;
   selectedSpot = -1;
   const p = POLICIES[i], grp = GROUPS[p.group];
   cardBody.innerHTML = `
-    <span class="tag" style="background:${grp.color}">${grp.name}</span>
+    <span class="tag" style="background:${readableBg(grp.color)}">${groupIcon(p.group)}${grp.name}</span>
     <h2 tabindex="-1">${p.title}</h2>
-    <p>${p.summary}</p>
-    <ul>${p.items.map((t) => `<li>${t}</li>`).join('')}</ul>
+    <p class="keypoint"><small>重點</small>${keyPointOf(p)}</p>
+    <p class="summary">${p.summary}</p>
+    <ul>${p.items.filter((t) => t !== keyPointOf(p)).map((t) => `<li>${t}</li>`).join('')}</ul>
     <a class="source" href="${policyUrl(p)}" target="_blank" rel="noopener">閱讀完整政見 ↗</a>
     <p class="meta">資料擷取自官網 ${SOURCE_DATE} · <a href="policy/${encodeURIComponent(p.short)}/?size=l">大字文字版</a></p>
     <div class="share">
@@ -2359,7 +2465,8 @@ function select(i) {
       ${socialLinks()}
       <button class="ig" type="button">IG 限時動態</button>
       <button class="copy" type="button">複製連結</button>
-    </div>`;
+    </div>
+    ${moreFor(i)}`;
   openCard();
   islands.forEach((g, k) => { g.userData.liftGoal = k === i ? 0.5 : 0; });
   applyDim();
@@ -3324,6 +3431,24 @@ document.getElementById('story-close').addEventListener('click', closeStory);
 storyEl.addEventListener('click', (e) => { if (e.target === storyEl) closeStory(); });
 
 cardBody.addEventListener('click', (e) => {
+  const rec = e.target.closest('[data-rec]');
+  if (rec) {
+    track('select_related', { from: POLICIES[selected].short, to: POLICIES[Number(rec.dataset.rec)].short });
+    select(Number(rec.dataset.rec));
+    return;
+  }
+  const mark = e.target.closest('.mark');
+  if (mark && selected >= 0) {
+    // Private signal for the site's own analytics; nothing is shown publicly
+    const set = importantSet(), name = POLICIES[selected].short, on = !set.has(name);
+    if (on) set.add(name);
+    else set.delete(name);
+    try { localStorage.setItem('important', JSON.stringify([...set])); } catch { /* storage blocked */ }
+    mark.setAttribute('aria-pressed', String(on));
+    mark.textContent = on ? '♥ 已標記重要' : '♡ 這對我重要';
+    track('mark_important', { policy_name: name, on });
+    return;
+  }
   const social = e.target.closest('a[data-share]');
   if (social?.dataset.share === 'line') {
     e.preventDefault();
@@ -3392,9 +3517,14 @@ function watchPerf(dt) {
 }
 
 let firstFrame = true;
+// Scenery runs on its own clock, eased to a quarter speed while a card is open so it does not pull attention
+let sceneT = 0, sceneSpeed = 1;
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
-  if (!reduced) animators.forEach((fn) => fn(t, dt));
+  sceneSpeed += ((card.hidden ? 1 : 0.25) - sceneSpeed) * Math.min(1, dt * 3);
+  const sceneDt = dt * sceneSpeed;
+  sceneT += sceneDt;
+  if (!reduced) animators.forEach((fn) => fn(sceneT, sceneDt));
   islands.forEach((g, i) => {
     const u = g.userData;
     const goal = u.liftGoal + (hovered === i && selected !== i ? 0.15 : 0);
@@ -3402,7 +3532,7 @@ renderer.setAnimationLoop(() => {
     g.position.y = u.lift + (reduced ? 0 : Math.sin(t * 0.8 + i * 1.3) * 0.06);
   });
   updateBridges();
-  people.forEach((w) => stepPerson(w, reduced ? 0 : dt));
+  people.forEach((w) => stepPerson(w, reduced ? 0 : sceneDt));
   updateFollow(dt);
   if (fly) {
     const k = Math.min(1, dt * 3);
