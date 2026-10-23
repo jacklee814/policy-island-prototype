@@ -688,11 +688,13 @@ scene.add(sun);
 
 // ---------- Model kit ----------
 const matCache = new Map();
-const mat = (color, extra = {}) => {
-  const key = color + JSON.stringify(extra);
-  if (!matCache.has(key)) matCache.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...extra }));
-  return matCache.get(key);
+// Get-or-create in a cache map; shared by the material, texture and geometry caches
+const cached = (cache, key, make) => {
+  if (!cache.has(key)) cache.set(key, make());
+  return cache.get(key);
 };
+const mat = (color, extra = {}) => cached(matCache, color + JSON.stringify(extra), () =>
+  new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...extra }));
 const mesh = (geo, color, x = 0, y = 0, z = 0, extra) => {
   const m = new THREE.Mesh(geo, mat(color, extra));
   m.position.set(x, y, z);
@@ -716,13 +718,20 @@ function house(g, x, z, wall, roof, s = 1) {
   g.add(r);
 }
 
-// Short random strokes along the tube's length; as a bump map they read as fur strands
-let furMap;
-function furTexture() {
-  if (furMap) return furMap;
+// A 64px canvas painted by `draw`, made into a repeating texture once per key
+const texCache = new Map();
+const canvasTexture = (key, repeatX, repeatY, draw) => cached(texCache, key, () => {
   const cv = document.createElement('canvas');
   cv.width = cv.height = 64;
-  const ctx = cv.getContext('2d');
+  draw(cv.getContext('2d'));
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeatX, repeatY);
+  return tex;
+});
+
+// Short random strokes along the tube's length; as a bump map they read as fur strands
+const furTexture = () => canvasTexture('fur', 8, 2, (ctx) => {
   ctx.fillStyle = '#808080';
   ctx.fillRect(0, 0, 64, 64);
   for (let i = 0; i < 400; i++) {
@@ -736,28 +745,61 @@ function furTexture() {
       ctx.stroke();
     }));
   }
-  furMap = new THREE.CanvasTexture(cv);
-  furMap.wrapS = furMap.wrapT = THREE.RepeatWrapping;
-  furMap.repeat.set(8, 2);
-  return furMap;
+});
+const furMat = (color) => cached(matCache, 'fur' + color, () =>
+  new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.05, bumpMap: furTexture(), bumpScale: 0.3 }));
+
+// Shell fur: copies of a mesh pushed out along its normals, cut out by a per-pixel noise mask so only speckles remain.
+// Stacked over the solid mesh they give the coat a soft, tufty depth. Offsetting along normals (not scaling about the
+// origin) keeps the shell even on parts whose origin is off-center, like legs pivoting at the hip. alphaTest (not
+// blending) keeps them free of transparency sorting; the outer shell uses a higher threshold, so it is sparser, like fur tips.
+const SHELLS = [0.004, 0.008];
+const furAlpha = () => canvasTexture('furAlpha', 6, 6, (ctx) => {
+  const img = ctx.createImageData(64, 64);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = Math.random() * 255;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+    img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+});
+const shellMat = (color, layer) => cached(matCache, `shell${color}${layer}`, () =>
+  new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.05, alphaMap: furAlpha(), alphaTest: 0.35 + layer * 0.25 }));
+// Inflated copies are built once per source geometry and shared by every mesh using it
+const shellGeos = new WeakMap();
+function shellGeometry(geo, layer) {
+  if (!shellGeos.has(geo)) {
+    shellGeos.set(geo, SHELLS.map((offset) => {
+      const g = geo.clone();
+      const pos = g.attributes.position, nor = g.attributes.normal;
+      for (let i = 0; i < pos.count; i++) {
+        pos.setXYZ(i, pos.getX(i) + nor.getX(i) * offset, pos.getY(i) + nor.getY(i) * offset, pos.getZ(i) + nor.getZ(i) * offset);
+      }
+      return g;
+    }));
+  }
+  return shellGeos.get(geo)[layer];
+}
+function furShells(m, color) {
+  SHELLS.forEach((_, layer) => {
+    const shell = new THREE.Mesh(shellGeometry(m.geometry, layer), shellMat(color, layer));
+    shell.receiveShadow = true;
+    m.add(shell);
+  });
 }
 
-// Shiba "taiko" curl: a tapered tube along a spiral that leaves the rump backward, rises and curls forward
-// over the back, skinned to a bone chain so it can wag. The outside of the curl is cream, the inside orange.
-// Two plain-colored fur materials (via geometry groups, not vertex colors) so island dimming greys the tail like the rest.
+// Curled dog tail: a tapered tube along a spiral that leaves the rump backward, rises and curls forward over the back,
+// skinned to a bone chain so it can wag. The defaults give the Shiba's tight "taiko" curl; fewer turns and more
+// sideways drift give a Samoyed's plume draped over the back. The inside and outside of the curl get their own color,
+// as two plain-colored fur materials (via geometry groups, not vertex colors) so island dimming greys the tail like the rest.
 const TAIL_BONES = 6;
-const furMat = (color) => {
-  const key = 'fur' + color;
-  if (!matCache.has(key)) matCache.set(key, new THREE.MeshStandardMaterial({ color, roughness: 1, bumpMap: furTexture(), bumpScale: 0.3 }));
-  return matCache.get(key);
-};
-function curlyTail(color, cream) {
-  const CENTER = 0.085, N = 16;
+function curlyTail(innerColor, outerColor, { turns = 1.1, center = 0.085, shrink = 0.05, drift = 0.04, r0 = 0.045, r1 = 0.035, wide = 1, flat = 1 } = {}) {
+  const N = 16;
   const pts = [];
   for (let i = 0; i <= N; i++) {
-    const s = i / N, a = s * Math.PI * 2.2, rr = CENTER - 0.05 * s;
+    const s = i / N, a = s * Math.PI * 2 * turns, rr = center - shrink * s;
     // a = 0 is the root right below the curl center; drifting sideways turns the circle into a spiral
-    pts.push(new THREE.Vector3(0.04 * s, CENTER - rr * Math.cos(a), rr * Math.sin(a)));
+    pts.push(new THREE.Vector3(drift * s, center - rr * Math.cos(a), rr * Math.sin(a)));
   }
   const curve = new THREE.CatmullRomCurve3(pts);
   const SEG = 64, RAD = 10, CAP = 0.92, ROOT = 0.08;
@@ -769,15 +811,20 @@ function curlyTail(color, cream) {
   for (let i = 0; i <= SEG; i++) {
     // Barely tapers; both ends round off into closed caps so the root shows no hole above the back
     const u = i / SEG, c = Math.max(0, (u - CAP) / (1 - CAP), (ROOT - u) / ROOT);
-    const r = (0.045 - 0.01 * u) * Math.sqrt(1 - c * c);
+    const r = THREE.MathUtils.lerp(r0, r1, u) * Math.sqrt(1 - c * c);
     curve.getPointAt(u, P);
-    out.set(0, P.y - CENTER, P.z).normalize();
+    out.set(0, P.y - center, P.z).normalize();
     const f = u * (TAIL_BONES - 1), b = Math.min(Math.floor(f), TAIL_BONES - 2);
     for (let j = 0; j <= RAD; j++) {
       const k = i * (RAD + 1) + j;
       n.fromBufferAttribute(pos, k).sub(P);
+      // Cross-section: `wide` stretches it sideways, `flat` squashes it toward the back (Samoyed plume)
+      // (both 1 leaves the round tube untouched)
+      const o = n.dot(out);
+      n.x *= wide;
+      n.addScaledVector(out, (flat - 1) * o);
       pos.setXYZ(k, P.x + n.x * r, P.y + n.y * r, P.z + n.z * r);
-      outward.push(n.dot(out));
+      outward.push(o);
       skinIndex.push(b, b + 1, 0, 0);
       skinWeight.push(b + 1 - f, f - b, 0, 0);
     }
@@ -806,7 +853,7 @@ function curlyTail(color, cream) {
     nor.setXYZ(s, n.x, n.y, n.z);
     nor.setXYZ(e, n.x, n.y, n.z);
   }
-  const tail = new THREE.SkinnedMesh(geo, [furMat(color), furMat(cream)]);
+  const tail = new THREE.SkinnedMesh(geo, [furMat(innerColor), furMat(outerColor)]);
   tail.castShadow = tail.receiveShadow = true;
   // Bones sit evenly along the curve, each positioned relative to its parent
   const bones = [];
@@ -914,12 +961,14 @@ const BUILDERS = {
     g.add(roof);
     // Lawn disc; dogs stand on its top face, hips one leg length above it
     const LAWN_TOP = 0.035, LEG = 0.12;
+    const fluffGeos = new Map();
     g.add(mesh(new THREE.CylinderGeometry(0.75, 0.75, 0.03, 24), '#a8d5a2', 0.3, LAWN_TOP - 0.015, 0.3));
     // Shared body, head and four legs; each breed adds its own details on top
-    const dogBase = (color) => {
+    const dogBase = (color, { width = 0.18, height = 0.16, length = 0.36, round = 0.06, y = 0.18 } = {}) => {
       const d = new THREE.Group();
-      d.add(mesh(rbox(0.18, 0.16, 0.36, 0.06), color, 0, 0.18, 0));
-      d.add(mesh(new THREE.SphereGeometry(0.11, 12, 8), color, 0, 0.3, -0.2));
+      const body = mesh(rbox(width, height, length, round), color, 0, y, 0);
+      const head = mesh(new THREE.SphereGeometry(0.11, 12, 8), color, 0, 0.3, -0.2);
+      d.add(body, head);
       // Front-left, front-right, back-left, back-right
       const legs = [[-0.06, -0.12], [0.06, -0.12], [-0.06, 0.12], [0.06, 0.12]].map(([x, z]) => {
         const leg = mesh(new THREE.CylinderGeometry(0.025, 0.025, LEG, 5), color, x, LEG, z);
@@ -927,12 +976,147 @@ const BUILDERS = {
         d.add(leg);
         return leg;
       });
-      return { d, legs, tailBones: [] };
+      return { d, body, head, legs, tailBones: [], update: null };
     };
-    const plainDog = (color) => {
-      const dog = dogBase(color);
-      dog.d.add(mesh(new THREE.SphereGeometry(0.03, 6, 4), '#1f2328', 0, 0.29, -0.31));
-      dog.d.add(mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.15, 5), color, 0, 0.3, 0.2));
+    const samoyedDog = (color) => {
+      // Deeper, rounder body than the Shiba's, as the thick coat fills it out
+      const dog = dogBase(color, { width: 0.21, height: 0.2, length: 0.38, round: 0.09, y: 0.2 });
+      const { d, body, head, legs } = dog;
+      const shadow = '#efe8dc'; // warm cream for the shaded inside of the tail curl
+      // Cloud-like coat: matte fur material plus speckled shells around every fluffy part
+      const furry = (m) => {
+        m.material = furMat(color);
+        furShells(m, color);
+        return m;
+      };
+      // Smooth, finely tessellated ellipsoids read as soft fluff rather than faceted balls; one geometry per radius
+      const fluff = (r, x, y, z, sx = 1, sy = 1, sz = 1) => {
+        const m = mesh(cached(fluffGeos, r, () => new THREE.SphereGeometry(r, 24, 16)), color, x, y, z);
+        m.scale.set(sx, sy, sz);
+        return furry(m);
+      };
+      furry(body);
+      furry(head);
+
+      // ---- Ears: thick rounded triangles sunk into the head fur ----
+      const earShape = new THREE.Shape();
+      earShape.moveTo(-0.042, 0);
+      earShape.lineTo(-0.016, 0.07);
+      earShape.quadraticCurveTo(0, 0.095, 0.016, 0.07); // wide, round tip so it doesn't read as a Shiba or wolf
+      earShape.lineTo(0.042, 0);
+      earShape.lineTo(-0.042, 0);
+      const earGeo = new THREE.ExtrudeGeometry(earShape, { depth: 0.02, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.007, bevelSegments: 3, curveSegments: 8 });
+      earGeo.translate(0, 0, -0.01);
+      const innerGeo = new THREE.ShapeGeometry(earShape, 8);
+      let leftEye, leftRim;
+      [-0.05, 0.05].forEach((x) => {
+        const side = Math.sign(x);
+        const ear = new THREE.Group();
+        ear.position.set(x * 0.75, 0.37, -0.19);
+        ear.rotation.z = -side * 0.25; // tips lean outward
+        ear.add(furry(mesh(earGeo, color)));
+        const inner = mesh(innerGeo, '#f5e6dc', 0, 0.012, -(0.018 + SHELLS[1] + 0.002)); // half depth + bevel, then past the outer fur shell
+        inner.scale.setScalar(0.6);
+        inner.rotation.y = Math.PI; // the flat shape faces +z; turn it to face forward
+        ear.add(inner);
+        d.add(ear);
+
+        // ---- Eyes: black almond eyes in a dark rim, with a tiny catch-light ----
+        // Outer corners droop for a sleepy, goofy look; both sit just outside the head's outer fur shell
+        const rim = mesh(new THREE.SphereGeometry(0.013, 12, 8), '#1a1a1a', x * 0.9, 0.33, -0.303);
+        rim.scale.set(1.9, 1.05, 0.5);
+        rim.rotation.z = -side * 0.2;
+        const eye = mesh(new THREE.SphereGeometry(0.013, 12, 8), '#111111', x * 0.9, 0.33, -0.306, { roughness: 0.2 });
+        eye.scale.set(1.5, 0.75, 0.6);
+        eye.rotation.z = -side * 0.2;
+        eye.add(mesh(new THREE.SphereGeometry(0.0035, 6, 4), '#ffffff', 0.004, 0.005, -0.011, { emissive: '#ffffff', emissiveIntensity: 0.6 }));
+        d.add(rim, eye);
+        if (x < 0) [leftEye, leftRim] = [eye, rim]; // the dog's own left: it faces -z, so its left is -x
+        d.add(fluff(0.05, x * 1.4, 0.27, -0.2)); // puffy cheeks widen the face
+      });
+
+      // ---- Muzzle: a rounded cone, widened toward the bottom; glossy black leather nose ----
+      const MUZZLE = { x: 0, y: 0.27, z: -0.29, r: 0.05, wide: 1.2 };
+      const muzzle = furry(mesh(new THREE.SphereGeometry(MUZZLE.r, 16, 12), color, MUZZLE.x, MUZZLE.y, MUZZLE.z));
+      muzzle.scale.x = MUZZLE.wide;
+      d.add(muzzle);
+      d.add(mesh(new THREE.SphereGeometry(0.02, 10, 8), '#111111', 0, 0.29, -0.335, { roughness: 0.35, metalness: 0.1 }));
+      // A point on the muzzle's front surface at (x, y), nudged out past its fur shells so the face details stay clean
+      const onMuzzle = (x, y) => {
+        const dx = x / MUZZLE.wide, dy = y - MUZZLE.y;
+        return new THREE.Vector3(x, y, MUZZLE.z - Math.sqrt(Math.max(0, MUZZLE.r ** 2 - dx * dx - dy * dy)) - SHELLS[1] - 0.002);
+      };
+
+      // ---- Sammy smile: a black lip line hugging the muzzle, corners sweeping up about 30° ----
+      // y = base + k·x² has slope 2k·x, so k = tan(30°) / (2·half-width) at the corners
+      const HALF = 0.04, LIP_Y = 0.236, K = Math.tan(THREE.MathUtils.degToRad(30)) / (2 * HALF);
+      const lipPts = [];
+      for (let i = 0; i <= 10; i++) {
+        const x = -HALF + (i / 10) * 2 * HALF;
+        lipPts.push(onMuzzle(x, LIP_Y + K * x * x));
+      }
+      d.add(mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(lipPts), 24, 0.0035, 6, false), '#111111', 0, 0, 0, { roughness: 0.5 }));
+      // Slightly open mouth just under the lip line, so the tongue comes out from beneath it
+      const mouthAt = onMuzzle(0, LIP_Y - 0.008);
+      const mouth = mesh(new THREE.SphereGeometry(0.02, 12, 8), '#4a2a30', 0, mouthAt.y, mouthAt.z + 0.004);
+      mouth.scale.set(1.4, 0.5, 0.5);
+      d.add(mouth);
+      // Flat pink tongue hanging over the lower jaw, hinged inside the lip line so the lip frames its top and sides
+      const tongue = new THREE.Group();
+      tongue.position.set(0, LIP_Y - 0.004, mouthAt.z + 0.002);
+      const blade = mesh(new THREE.SphereGeometry(0.016, 12, 10), '#ff6b8b', 0, -0.022, 0);
+      blade.scale.set(1, 1.5, 0.35);
+      tongue.add(blade);
+      const TONGUE_REST = 0.35;
+      tongue.rotation.x = TONGUE_REST; // resting angle, forward over the lower jaw; panting swings around it
+      d.add(tongue);
+
+      // Left-eye wink every 3–8 s: a scheduled timer rather than a per-frame dice roll, so it never flickers
+      const WINK = 0.3;
+      let nextWink = 3 + Math.random() * 5, winkStart = -1;
+      dog.update = (t) => {
+        if (winkStart < 0 && t >= nextWink) winkStart = t;
+        let open = 1;
+        if (winkStart >= 0) {
+          const k = (t - winkStart) / WINK;
+          if (k >= 1) {
+            winkStart = -1;
+            nextWink = t + 3 + Math.random() * 5;
+          } else open = 1 - Math.sin(k * Math.PI) * 0.9;
+        }
+        // The rim closes with the eye, or its dark almond would hide the wink
+        leftEye.scale.y = 0.75 * open;
+        leftRim.scale.y = 1.05 * open;
+        // Gentle panting: the tongue swings and stretches, the body swells a touch with each breath
+        const breath = Math.sin(t * 5);
+        tongue.rotation.x = TONGUE_REST + breath * 0.08;
+        tongue.scale.y = 1 + breath * 0.05;
+        body.scale.set(1, 1 + breath * 0.02, 1 + breath * 0.01);
+      };
+
+      // ---- Ruff: one smooth mane wrapping the neck and framing the face, over a deep chest ----
+      const ruff = new THREE.Group();
+      ruff.add(
+        fluff(0.11, 0, 0.25, -0.14, 1, 0.9, 0.7),
+        fluff(0.085, 0, 0.24, -0.19, 0.9, 1.1, 0.8), // raised so it tucks up under the chin
+      );
+      d.add(ruff);
+
+      // ---- Legs: thick fluffy upper leg, slim lower leg, small flat paw ----
+      const upperLeg = new THREE.CapsuleGeometry(0.045, 0.02, 6, 16);
+      legs.forEach((leg) => {
+        furry(leg);
+        // Upper leg centered on the hip so the slim lower leg shows between it and the small, flat paw
+        const upper = furry(mesh(upperLeg, color, 0, 0, 0.005));
+        leg.add(upper, fluff(0.03, 0, -LEG + 0.015, -0.01, 1, 0.5, 1));
+      });
+
+      // ---- Tail: a flattened, widened plume lying over the back ----
+      const TAIL = { turns: 0.8, center: 0.085, shrink: 0.025, drift: 0.05, r0: 0.065, r1: 0.06, wide: 1.1, flat: 0.7 };
+      const plume = curlyTail(shadow, color, TAIL);
+      plume.tail.position.set(0, 0.27, 0.15);
+      d.add(plume.tail);
+      dog.tailBones = plume.bones;
       return dog;
     };
     const shibaDog = (color) => {
@@ -984,10 +1168,10 @@ const BUILDERS = {
       return dog;
     };
     // Dogs run in circles around the lawn; the head points along -z, which is the tangent of a +y rotation
-    [[shibaDog, '#d98a3d', 0.6, 0], [plainDog, '#f5f5f0', 0.35, Math.PI]].forEach(([build, color, r, phase]) => {
+    [[shibaDog, '#d98a3d', 0.6, 0], [samoyedDog, '#f8f7f2', 0.35, Math.PI]].forEach(([build, color, r, phase]) => {
       const pivot = new THREE.Group();
       pivot.position.set(0.3, LAWN_TOP, 0.3);
-      const { d, legs, tailBones } = build(color);
+      const { d, legs, tailBones, update } = build(color);
       d.position.x = r;
       pivot.add(d);
       g.add(pivot);
@@ -1004,6 +1188,7 @@ const BUILDERS = {
           bone.rotation.y = Math.sin(t * 12 - k * 0.5) * 0.1;
           bone.rotation.x = Math.sin(t * 1.6 - k * 0.3) * 0.04;
         });
+        update?.(t);
       });
     });
     tree(g, 1.0, -0.6, 0.7); tree(g, -0.95, 0.7, 0.6);
