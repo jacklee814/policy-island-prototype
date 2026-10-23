@@ -286,7 +286,7 @@
   header button { pointer-events: auto; flex: none; }
   .actions { display: flex; gap: 8px; flex: none; }
   #follow-toggle { display: inline-flex; align-items: center; gap: 4px; }
-  #menu-toggle { display: none; }
+  #menu-toggle, #text-link { display: none; }
   #rail { display: none; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .legend button {
@@ -467,12 +467,17 @@
   @media (max-width: 640px) {
     /* Phone header: title + one menu button. The menu opens the view buttons and the category filters in place. */
     header {
-      display: grid; grid-template-columns: 1fr auto; grid-template-areas: "title menu" "sub sub" "actions actions" "legend legend";
+      display: grid; grid-template-columns: 1fr auto auto; grid-template-areas: "title text menu" "sub sub sub" "actions actions actions" "legend legend legend";
       gap: 6px 8px; padding: 0; border-radius: 16px; transition: background .2s, box-shadow .2s;
     }
     header > div:first-child { display: contents; }
     header h1 { grid-area: title; align-self: center; font-size: 18px; }
     header p { grid-area: sub; margin: 0; font-size: 12px; }
+    /* Plain-text version of all policies, for anyone who would rather read than explore the map */
+    #text-link {
+      display: inline-flex; grid-area: text; align-items: center; pointer-events: auto; padding: 7px 12px; font-size: 14px;
+      color: var(--ink); text-decoration: none; background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    }
     #menu-toggle { display: inline-flex; grid-area: menu; pointer-events: auto; align-items: center; gap: 6px; padding: 7px 12px; font-size: 14px; }
     header .actions, header .legend { display: none; }
     header.menu-open {
@@ -649,6 +654,7 @@
     <p>整理自蘇巧慧 2026 新北市長競選網站的 14 項政見</p>
     <div class="legend" id="legend" role="group" aria-label="依分類篩選"></div>
   </div>
+  <a id="text-link" href="policy/">文字版</a>
   <button id="menu-toggle" type="button" aria-expanded="false" aria-controls="header-actions" aria-label="開啟選單">☰ 選單</button>
   <div class="actions" id="header-actions">
     <button id="index-toggle" type="button" aria-expanded="false" aria-controls="index">☰ 清單</button>
@@ -2610,6 +2616,7 @@ document.getElementById('islands-view').addEventListener('click', () => { stopFo
 // ---------- Phone menu: the view buttons and category filters fold into one button ----------
 const headerEl = document.querySelector('header');
 const menuToggle = document.getElementById('menu-toggle');
+document.getElementById('text-link').addEventListener('click', () => track('open_text_version', { from: 'header' }));
 function toggleMenu(open = !headerEl.classList.contains('menu-open')) {
   headerEl.classList.toggle('menu-open', open);
   menuToggle.setAttribute('aria-expanded', String(open));
