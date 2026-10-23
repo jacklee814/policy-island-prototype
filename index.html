@@ -1742,33 +1742,44 @@ function placeLabel(el, pos) {
 }
 
 // Island labels that would overlap a nearer one drop to their number. Widths are measured once per state and
-// cached, so this costs no layout work per frame.
+// cached, so this costs no layout work per frame. Decisions use each island's resting position, so the gentle
+// bobbing never flips a name; they also have hysteresis (a shortened label needs clear space around its full width
+// to regrow) and a short hold, so a moving camera does not make names flicker either.
+const LABEL_GAP = 8, LABEL_HOLD = 400; // px of clearance to regrow; ms a change must persist before it shows
 function declutterLabels() {
-  const boxes = [];
+  const boxes = [], now = performance.now();
   labels
     .map((el, i) => ({ el, i }))
-    .filter(({ el }) => el.style.display !== 'none' && el.placed)
-    .sort((a, b) => a.el.placed.depth - b.el.placed.depth) // nearest first keeps its name
+    .filter(({ el }) => el.style.display !== 'none' && el.rest)
+    .sort((a, b) => a.el.rest.depth - b.el.rest.depth) // nearest first keeps its name
     .forEach(({ el }) => {
       el.widths ??= {};
-      const fits = (tight) => {
+      const boxFor = (tight, pad = 0) => {
         // Width depends on the zoom mode (compact shows numbers only) and the phone/desktop font size
         const key = `${labelsEl.classList.contains('compact')}|${innerWidth <= 640}|${tight}`;
         if (el.widths[key] === undefined) {
-          const was = el.classList.contains('tight');
-          el.classList.toggle('tight', tight);
-          el.widths[key] = [el.offsetWidth, el.offsetHeight];
-          el.classList.toggle('tight', was);
+          // Measure a hidden copy, so the visible label never changes just to be measured
+          const probe = el.cloneNode(true);
+          probe.classList.toggle('tight', tight);
+          probe.style.visibility = 'hidden';
+          labelsEl.appendChild(probe);
+          el.widths[key] = [probe.offsetWidth, probe.offsetHeight];
+          probe.remove();
         }
-        const [w, h] = el.widths[key], { x, y } = el.placed;
-        const box = [x - w / 2, y - h, x + w / 2, y];
-        const clear = !boxes.some((o) => box[0] < o[2] - 1 && o[0] < box[2] - 1 && box[1] < o[3] - 1 && o[1] < box[3] - 1);
-        return clear ? box : null;
+        const [w, h] = el.widths[key], { x, y } = el.rest;
+        return [x - w / 2 - pad, y - h - pad, x + w / 2 + pad, y + pad];
       };
-      const tight = !el.classList.contains('active') && !fits(false);
-      el.classList.toggle('tight', tight);
-      const box = fits(tight);
-      if (box) boxes.push(box);
+      const clear = (b) => !boxes.some((o) => b[0] < o[2] - 1 && o[0] < b[2] - 1 && b[1] < o[3] - 1 && o[1] < b[3] - 1);
+      const isTight = el.classList.contains('tight');
+      // What the label should be now; regrowing asks for extra room so a bobbing neighbour does not flip it back
+      const want = !el.classList.contains('active') && !clear(boxFor(false, isTight ? LABEL_GAP : 0));
+      if (want === isTight) el.pendingSince = 0;
+      else if (!el.pendingSince) el.pendingSince = now;
+      else if (now - el.pendingSince >= LABEL_HOLD || el.classList.contains('active')) {
+        el.classList.toggle('tight', want);
+        el.pendingSince = 0;
+      }
+      boxes.push(boxFor(el.classList.contains('tight')));
     });
 }
 
@@ -1790,7 +1801,12 @@ const TAIPEI_POS = new THREE.Vector3(0, 0.3, 0.6);
 
 const labelPos = new THREE.Vector3();
 function updateLabels() {
-  islands.forEach((g, i) => placeLabel(labels[i], labelPos.set(g.position.x, g.position.y + 2.4, g.position.z)));
+  islands.forEach((g, i) => {
+    placeLabel(labels[i], labelPos.set(g.position.x, g.position.y + 2.4, g.position.z));
+    // Where the label would be with the island at rest: steady input for declutterLabels
+    tmp.set(g.position.x, 2.4, g.position.z).project(camera);
+    labels[i].rest = { x: (tmp.x * 0.5 + 0.5) * innerWidth, y: (-tmp.y * 0.5 + 0.5) * innerHeight, depth: tmp.z };
+  });
   placeLabel(taipeiLabel, TAIPEI_POS);
   spots.forEach((s) => placeLabel(s.label, labelPos.set(s.g.position.x, 2.3, s.g.position.z)));
   declutterLabels();
