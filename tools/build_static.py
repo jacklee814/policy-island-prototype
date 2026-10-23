@@ -292,11 +292,18 @@ def zh_date(iso):
     return f"{d.year} 年 {d.month} 月 {d.day} 日"
 
 
+def release_item(it):
+    # Optional "credit": {"name", "url"} thanks the person who built the feature
+    credit = it.get("credit")
+    thanks = f'<span class="credit">感謝 <a href="{e(credit["url"])}" rel="noopener">@{e(credit["name"])}</a> 貢獻</span>' if credit else ""
+    return f'<li><b>{e(it["title"])}</b>{e(it["desc"])}{thanks}</li>'
+
+
 release_sections = "\n".join(
     f"""<section class="release" id="{r['date']}">
 <h2><time datetime="{r['date']}">{zh_date(r['date'])}</time><span>{e(r['title'])}</span></h2>
 <ul class="release-items">
-{''.join(f'<li><b>{e(it["title"])}</b>{e(it["desc"])}</li>' for it in r['items'])}
+{''.join(release_item(it) for it in r['items'])}
 </ul>
 </section>"""
     for r in releases

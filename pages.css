@@ -56,3 +56,4 @@ h2 { margin: 32px 0 8px; font-size: 1.25rem; }
 .release-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .release-items li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
 .release-items b { display: block; margin-bottom: 2px; }
+.release-items .credit { display: block; margin-top: 6px; font-size: .8125rem; color: var(--muted); }

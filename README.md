@@ -56,7 +56,7 @@ python3 tools/build_og_images.py && python3 tools/build_static.py
 
 新增一天的更新：
 
-1. 在 `tools/releases.json` 最前面加一筆 `{ "date", "title", "items": [{ "title", "desc" }] }`
+1. 在 `tools/releases.json` 最前面加一筆 `{ "date", "title", "items": [{ "title", "desc" }] }`；某項由其他人貢獻時，可以在該項加上 `"credit": { "name", "url" }`，頁面會顯示「感謝 @name 貢獻」
 2. `python3 tools/build_static.py`
 
 最新一筆也會嵌進首頁：之前來過、但還沒看過這次更新的訪客，進站時會看到一行「10/23 更新：…」的提示。
